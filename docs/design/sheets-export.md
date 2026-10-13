@@ -4,6 +4,8 @@ L'export crée une nouvelle feuille via `spreadsheets.create`, puis écrit les c
 
 L'export reste désactivé jusqu'à un consentement explicite dans la popup. L'utilisateur est responsable de la finalité du suivi, des destinataires, de la durée de conservation et de la suppression de la feuille créée. Le bouton de déconnexion invalide le token courant et vide les résultats de la popup.
 
+Chaque appel Sheets est tenté deux fois. Si la création ou l'écriture échoue, la popup propose un téléchargement CSV local des mêmes sept colonnes afin de ne pas perdre le compte rendu.
+
 Les invités Agenda sont comparés aux participants Meet par adresse e-mail lorsqu'elle est fournie par l'API. Un invité sans correspondance reçoit le statut `absent`; les participants sans e-mail restent affichés comme identités à vérifier.
 
 Le fichier est créé dans le Drive du compte connecté. Le MVP ne partage pas automatiquement la feuille et ne conserve pas son identifiant. L'accès, la durée de conservation et la suppression doivent être validés avant un usage institutionnel.

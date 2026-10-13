@@ -7,6 +7,7 @@ const attendanceStatus = document.querySelector('#attendance-status');
 const participantList = document.querySelector('#participant-list');
 const exportButton = document.querySelector('#export-button');
 const exportConsent = document.querySelector('#export-consent');
+const localExportButton = document.querySelector('#local-export-button');
 
 const CALENDAR_EVENTS_URL = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
 const MEET_RECORDS_URL = 'https://meet.googleapis.com/v2/conferenceRecords';
@@ -26,6 +27,30 @@ function formatExportDate(value) {
 function splitName(name) {
   const parts = String(name || 'Participant inconnu').trim().split(/\s+/);
   return { firstName: parts.shift() || '', lastName: parts.join(' ') };
+}
+
+function exportValues() {
+  return [['Prénom', 'Nom', 'Date', 'Réunion', 'Arrivée', 'Départ', 'Statut'], ...currentAttendanceRows.map((row) => [row.firstName, row.lastName, row.date, row.meeting, row.arrival, row.departure, row.status])];
+}
+
+function downloadLocalCsv() {
+  const csv = exportValues().map((row) => row.map((value) => `"${String(value ?? '').replaceAll('"', '""')}"`).join(';')).join('\n');
+  const url = `data:text/csv;charset=utf-8,${encodeURIComponent(`\uFEFF${csv}`)}`;
+  chrome.downloads.download({ url, filename: `holbies-meet-presences-${new Date().toISOString().slice(0, 10)}.csv`, saveAs: true });
+}
+
+async function fetchWithRetry(url, options, attempts = 2) {
+  let lastError;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      const response = await fetch(url, options);
+      if (response.ok) return response;
+      lastError = new Error(`request-failed-${response.status}`);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError;
 }
 
 function setCalendarState(state, message) {
@@ -83,25 +108,18 @@ async function exportAttendanceToSheets() {
   exportButton.setAttribute('aria-busy', 'true');
   exportButton.textContent = 'Export en cours…';
   try {
-    const createResponse = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
+    const createResponse = await fetchWithRetry('https://sheets.googleapis.com/v4/spreadsheets', {
       method: 'POST',
       headers: { Authorization: `Bearer ${currentAccessToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ properties: { title: `Présences Meet - ${new Date().toLocaleDateString('fr-FR')}` } }),
     });
     if (!createResponse.ok) throw new Error(`sheets-create-failed-${createResponse.status}`);
     const spreadsheet = await createResponse.json();
-    const values = [['Prénom', 'Nom', 'Date', 'Réunion', 'Arrivée', 'Départ', 'Statut'], ...currentAttendanceRows.map((row) => [
-      row.firstName,
-      row.lastName,
-      row.date,
-      row.meeting,
-      row.arrival,
-      row.departure,
-      row.status,
-    ])];
+    if (!spreadsheet.spreadsheetId) throw new Error('sheets-missing-id');
+    const values = exportValues();
     const sheetTitle = spreadsheet.sheets?.[0]?.properties?.title || 'Sheet1';
-    const range = encodeURIComponent(`${sheetTitle}!A1:B${values.length}`);
-    const updateResponse = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(spreadsheet.spreadsheetId)}/values/${range}?valueInputOption=RAW`, {
+    const range = encodeURIComponent(`${sheetTitle}!A1:G${values.length}`);
+    const updateResponse = await fetchWithRetry(`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(spreadsheet.spreadsheetId)}/values/${range}?valueInputOption=RAW`, {
       method: 'PUT',
       headers: { Authorization: `Bearer ${currentAccessToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ range: `${sheetTitle}!A1`, majorDimension: 'ROWS', values }),
@@ -110,8 +128,9 @@ async function exportAttendanceToSheets() {
     setAttendanceState('success', 'Présences exportées dans une nouvelle feuille Google Sheets.');
     exportButton.textContent = 'Exporter à nouveau';
   } catch {
-    setAttendanceState('unavailable', 'Export Google Sheets impossible. Réessayez après la connexion.');
+    setAttendanceState('unavailable', 'Export Google Sheets impossible. Réessayez ou téléchargez le CSV local.');
     exportButton.textContent = 'Réessayer l’export';
+    localExportButton.hidden = false;
   } finally {
     exportButton.setAttribute('aria-busy', 'false');
     exportButton.disabled = currentAttendanceRows.length === 0 || !exportConsent.checked;
@@ -370,6 +389,7 @@ function resetSession() {
   eventList.replaceChildren();
   exportConsent.checked = false;
   exportButton.disabled = true;
+  localExportButton.hidden = true;
   signOutButton.hidden = true;
   setAuthState('ready', 'Compte déconnecté.');
   setCalendarState('ready', 'Connectez-vous pour charger vos événements.');
@@ -419,4 +439,5 @@ signOutButton.addEventListener('click', disconnectGoogleAccount);
 exportConsent.addEventListener('change', () => {
   exportButton.disabled = currentAttendanceRows.length === 0 || !exportConsent.checked;
 });
+localExportButton.addEventListener('click', downloadLocalCsv);
 exportButton.addEventListener('click', exportAttendanceToSheets);
