@@ -2,8 +2,12 @@ const signInButton = document.querySelector('#sign-in-button');
 const authStatus = document.querySelector('#auth-status');
 const calendarStatus = document.querySelector('#calendar-status');
 const eventList = document.querySelector('#event-list');
+const attendanceStatus = document.querySelector('#attendance-status');
+const participantList = document.querySelector('#participant-list');
 
 const CALENDAR_EVENTS_URL = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
+const MEET_RECORDS_URL = 'https://meet.googleapis.com/v2/conferenceRecords';
+let currentAccessToken = null;
 
 function setCalendarState(state, message) {
   calendarStatus.dataset.state = state;
@@ -22,6 +26,136 @@ function formatEventDate(event) {
         dateStyle: 'medium',
         timeStyle: event.start?.dateTime ? 'short' : undefined,
       }).format(date);
+}
+
+function setAttendanceState(state, message) {
+  attendanceStatus.dataset.state = state;
+  attendanceStatus.textContent = message;
+  attendanceStatus.setAttribute('aria-busy', String(state === 'loading'));
+}
+
+function renderAttendanceRows(rows) {
+  participantList.replaceChildren();
+
+  rows.forEach((row) => {
+    const item = document.createElement('li');
+    item.className = 'participant-item';
+
+    const identity = document.createElement('span');
+    identity.className = 'participant-identity';
+    identity.textContent = row.name;
+
+    const status = document.createElement('span');
+    status.className = 'participant-status';
+    status.dataset.status = row.status;
+    status.textContent = row.status;
+
+    item.append(identity, status);
+    participantList.append(item);
+  });
+}
+
+function prepareAttendanceView(event) {
+  participantList.replaceChildren();
+  if (!event.hangoutLink) {
+    setAttendanceState('unavailable', 'Aucun lien Google Meet pour cet événement.');
+    return;
+  }
+
+  setAttendanceState('ready', 'Réunion prête à être analysée.');
+}
+
+function extractMeetingCode(hangoutLink) {
+  try {
+    const url = new URL(hangoutLink);
+    if (url.hostname !== 'meet.google.com') return null;
+    const code = url.pathname.split('/').filter(Boolean)[0];
+    return /^[a-z0-9-]+$/i.test(code || '') ? code : null;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchMeetPage(url, token) {
+  const response = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!response.ok) {
+    if (response.status === 401) await chrome.identity.removeCachedAuthToken({ token });
+    throw new Error(`meet-request-failed-${response.status}`);
+  }
+
+  return response.json();
+}
+
+async function fetchAllMeetPages(url, collectionKey, token) {
+  const items = [];
+  let pageToken = null;
+
+  do {
+    const pageUrl = new URL(url);
+    if (pageToken) pageUrl.searchParams.set('pageToken', pageToken);
+    const page = await fetchMeetPage(pageUrl, token);
+    items.push(...(Array.isArray(page[collectionKey]) ? page[collectionKey] : []));
+    pageToken = page.nextPageToken || null;
+  } while (pageToken);
+
+  return items;
+}
+
+function formatAttendanceStatus(status) {
+  return {
+    'on-time': 'à l’heure',
+    late: 'en retard',
+    absent: 'absent',
+    'identity-to-check': 'inconnu',
+  }[status] || 'à vérifier';
+}
+
+async function analyzeMeeting(event) {
+  const meetingCode = extractMeetingCode(event.hangoutLink);
+  if (!meetingCode || !currentAccessToken) {
+    setAttendanceState('unavailable', 'Lien Meet ou connexion Google indisponible.');
+    return;
+  }
+
+  setAttendanceState('loading', 'Recherche du compte rendu Meet…');
+  participantList.replaceChildren();
+
+  try {
+    const filter = `space.meeting_code = "${meetingCode}"`;
+    const recordsUrl = new URL(MEET_RECORDS_URL);
+    recordsUrl.searchParams.set('filter', filter);
+    recordsUrl.searchParams.set('pageSize', '10');
+    const records = await fetchAllMeetPages(recordsUrl, 'conferenceRecords', currentAccessToken);
+    const record = records[0];
+
+    if (!record?.name) {
+      setAttendanceState('empty', 'Aucun compte rendu Meet disponible pour cette réunion.');
+      return;
+    }
+
+    const participantsUrl = `${MEET_RECORDS_URL}/${record.name.split('/').pop()}/participants?pageSize=250`;
+    const participants = await fetchAllMeetPages(participantsUrl, 'participants', currentAccessToken);
+    const rows = await Promise.all(participants.map(async (participant) => {
+      const participantName = participant.name.split('/').pop();
+      const sessionsUrl = `${MEET_RECORDS_URL}/${record.name.split('/').pop()}/participants/${participantName}/participantSessions?pageSize=250`;
+      const sessions = await fetchAllMeetPages(sessionsUrl, 'participantSessions', currentAccessToken);
+      const result = MeetAttendance.calculateAttendance(participant, sessions, event.start?.dateTime || event.start?.date);
+      return { name: result.name, status: formatAttendanceStatus(result.status) };
+    }));
+
+    renderAttendanceRows(rows);
+    setAttendanceState(rows.length ? 'success' : 'empty', rows.length
+      ? `${rows.length} participant${rows.length > 1 ? 's' : ''} trouvé${rows.length > 1 ? 's' : ''}.`
+      : 'Aucun participant dans ce compte rendu.');
+  } catch (error) {
+    const message = error.name === 'AbortError'
+      ? 'La recherche Meet a dépassé le délai prévu.'
+      : 'Impossible de charger les présences Meet. Vérifiez vos droits sur la réunion.';
+    setAttendanceState('unavailable', message);
+  }
 }
 
 function renderEvents(events) {
@@ -46,7 +180,23 @@ function renderEvents(events) {
     date.className = 'event-date';
     date.textContent = formatEventDate(event);
 
-    item.append(title, date);
+    const actions = document.createElement('div');
+    actions.className = 'event-actions';
+
+    if (event.hangoutLink) {
+      const analyzeButton = document.createElement('button');
+      analyzeButton.className = 'secondary-button';
+      analyzeButton.type = 'button';
+      analyzeButton.textContent = 'Analyser';
+      analyzeButton.setAttribute('aria-label', `Analyser les présences de ${event.summary || 'la réunion'}`);
+      analyzeButton.addEventListener('click', () => {
+        prepareAttendanceView(event);
+        analyzeMeeting(event);
+      });
+      actions.append(analyzeButton);
+    }
+
+    item.append(title, date, actions);
     eventList.append(item);
   });
 }
@@ -126,6 +276,7 @@ function connectGoogleAccount() {
 
       setLoading(false);
       setAuthState('success', 'Compte Google connecté.');
+      currentAccessToken = token;
       return loadCalendarEvents(token).catch(() => {
         setCalendarState('error', 'Impossible de charger votre agenda. Réessayez après la connexion.');
       });
