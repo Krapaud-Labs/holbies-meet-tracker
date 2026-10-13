@@ -395,6 +395,46 @@ h2 {
   color: var(--rose-soft);
 }
 
+.connected-account {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 14px 0;
+  padding: 10px;
+  border: 1px solid var(--line);
+  background: rgba(255, 245, 247, 0.06);
+}
+
+.account-avatar {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--cherry);
+  color: var(--ink);
+  font-weight: 800;
+}
+
+.account-details {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.account-details strong,
+.account-details span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-details span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .primary-button {
   justify-content: space-between;
   width: 100%;

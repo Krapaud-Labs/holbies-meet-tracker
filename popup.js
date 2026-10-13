@@ -1,6 +1,10 @@
 const signInButton = document.querySelector('#sign-in-button');
 const signOutButton = document.querySelector('#sign-out-button');
 const authStatus = document.querySelector('#auth-status');
+const connectedAccount = document.querySelector('#connected-account');
+const accountAvatar = document.querySelector('#account-avatar');
+const accountName = document.querySelector('#account-name');
+const accountEmail = document.querySelector('#account-email');
 const calendarStatus = document.querySelector('#calendar-status');
 const eventList = document.querySelector('#event-list');
 const attendanceStatus = document.querySelector('#attendance-status');
@@ -15,6 +19,7 @@ const summaryAbsent = document.querySelector('#summary-absent');
 
 const CALENDAR_EVENTS_URL = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
 const MEET_RECORDS_URL = 'https://meet.googleapis.com/v2/conferenceRecords';
+const GOOGLE_TOKEN_INFO_URL = 'https://oauth2.googleapis.com/tokeninfo';
 let currentAccessToken = null;
 let currentAttendanceRows = [];
 
@@ -414,6 +419,24 @@ function setAuthState(state, message) {
   authStatus.textContent = message;
 }
 
+async function fetchConnectedAccount(token) {
+  const response = await fetch(`${GOOGLE_TOKEN_INFO_URL}?access_token=${encodeURIComponent(token)}`);
+  if (!response.ok) throw new Error(`account-request-failed-${response.status}`);
+  const profile = await response.json();
+  return {
+    email: typeof profile.email === 'string' ? profile.email : '',
+    name: typeof profile.email === 'string' ? profile.email : 'Compte Google connecté',
+  };
+}
+
+function renderConnectedAccount(account) {
+  const label = account.name || account.email || 'Compte Google connecté';
+  accountName.textContent = label;
+  accountEmail.textContent = account.email && account.email !== label ? account.email : '';
+  accountAvatar.textContent = (label.trim()[0] || 'G').toUpperCase();
+  connectedAccount.hidden = false;
+}
+
 function setLoading(isLoading) {
   signInButton.disabled = isLoading;
   signInButton.setAttribute('aria-busy', String(isLoading));
@@ -431,6 +454,10 @@ function resetSession() {
   exportButton.disabled = true;
   localExportButton.hidden = true;
   signOutButton.hidden = true;
+  connectedAccount.hidden = true;
+  accountName.textContent = 'Compte Google connecté';
+  accountEmail.textContent = '';
+  accountAvatar.textContent = 'G';
   setAuthState('ready', 'Compte déconnecté.');
   setCalendarState('ready', 'Connectez-vous pour charger vos événements.');
   setAttendanceState('ready', 'Choisissez une réunion Google Meet pour afficher les participants.');
@@ -464,7 +491,12 @@ function connectGoogleAccount() {
       setAuthState('success', 'Compte Google connecté.');
       signOutButton.hidden = false;
       currentAccessToken = token;
-      return loadCalendarEvents(token).catch(() => {
+      return fetchConnectedAccount(token)
+        .then(renderConnectedAccount)
+        .catch(() => {
+          renderConnectedAccount({ email: '', name: 'Compte Google connecté' });
+        })
+        .then(() => loadCalendarEvents(token)).catch(() => {
         setCalendarState('error', 'Impossible de charger votre agenda. Réessayez après la connexion.');
       });
     })
