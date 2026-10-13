@@ -260,6 +260,10 @@ h1 span {
   font-weight: 800;
 }
 
+#sign-out-button {
+  width: 100%;
+}
+
 .secondary-button:hover,
 .secondary-button:focus-visible {
   background: rgba(255, 45, 85, 0.14);
