@@ -1,13 +1,13 @@
 :root {
   color-scheme: dark;
-  --ink: #101010;
-  --ink-soft: #1b1b1b;
-  --paper: #f5f1e9;
-  --muted: #b5afa5;
-  --lime: #d7ff00;
-  --lime-soft: #efff8a;
-  --accent: #b8a7ff;
-  --line: rgba(245, 241, 233, 0.18);
+  --ink: #160b12;
+  --ink-soft: #24101b;
+  --paper: #fff5f7;
+  --muted: #d5b8c2;
+  --cherry: #ff2d55;
+  --rose-soft: #ff8da3;
+  --accent: #ffb3c1;
+  --line: rgba(255, 245, 247, 0.2);
   font-family: Arial, Helvetica, sans-serif;
 }
 
@@ -43,7 +43,7 @@ a {
   padding: 22px 22px 18px;
   overflow: hidden;
   background:
-    radial-gradient(circle at 100% 0, rgba(215, 255, 0, 0.12), transparent 34%),
+    radial-gradient(circle at 100% 0, rgba(255, 45, 85, 0.18), transparent 34%),
     var(--ink);
 }
 
@@ -70,7 +70,7 @@ a {
 }
 
 .brand strong {
-  color: var(--lime);
+  color: var(--cherry);
 }
 
 .brand-mark {
@@ -78,7 +78,7 @@ a {
   width: 28px;
   height: 28px;
   place-items: center;
-  background: var(--lime);
+  background: var(--cherry);
   color: var(--ink);
   font-size: 17px;
   font-weight: 900;
@@ -96,8 +96,8 @@ a {
   width: 9px;
   height: 9px;
   border-radius: 50%;
-  background: var(--lime);
-  box-shadow: 0 0 0 5px rgba(215, 255, 0, 0.12);
+  background: var(--cherry);
+  box-shadow: 0 0 0 5px rgba(255, 45, 85, 0.16);
 }
 
 .hero {
@@ -108,7 +108,7 @@ a {
 .card-kicker,
 .stat-label {
   margin: 0;
-  color: var(--lime);
+  color: var(--cherry);
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.14em;
@@ -128,7 +128,7 @@ h1 {
 }
 
 h1 span {
-  color: var(--lime);
+  color: var(--cherry);
 }
 
 .hero-copy {
@@ -141,7 +141,7 @@ h1 span {
 .status-card {
   padding: 18px;
   border: 1px solid var(--line);
-  border-top: 3px solid var(--lime);
+  border-top: 3px solid var(--cherry);
   background: var(--ink-soft);
 }
 
@@ -168,15 +168,15 @@ h1 span {
 }
 
 .calendar-status[data-state="loading"] {
-  color: var(--lime);
+  color: var(--cherry);
 }
 
 .calendar-status[data-state="error"] {
-  color: #ffb4a3;
+  color: var(--rose-soft);
 }
 
 .calendar-status[data-state="success"] {
-  color: #9fe3b1;
+  color: var(--rose-soft);
 }
 
 .event-list {
@@ -189,7 +189,7 @@ h1 span {
 
 .event-item {
   padding: 11px 12px;
-  border-left: 2px solid var(--lime);
+  border-left: 2px solid var(--cherry);
   background: rgba(245, 241, 233, 0.06);
 }
 
@@ -206,9 +206,9 @@ h1 span {
 
 .secondary-button {
   padding: 7px 10px;
-  border: 1px solid rgba(215, 255, 0, 0.58);
+  border: 1px solid rgba(255, 45, 85, 0.7);
   background: transparent;
-  color: var(--lime);
+  color: var(--cherry);
   cursor: pointer;
   font-size: 11px;
   font-weight: 800;
@@ -216,7 +216,7 @@ h1 span {
 
 .secondary-button:hover,
 .secondary-button:focus-visible {
-  background: rgba(215, 255, 0, 0.12);
+  background: rgba(255, 45, 85, 0.14);
 }
 
 .secondary-button:focus-visible {
@@ -242,11 +242,11 @@ h1 span {
 }
 
 .attendance-status[data-state="ready"] {
-  color: #9fe3b1;
+  color: var(--rose-soft);
 }
 
 .attendance-status[data-state="unavailable"] {
-  color: #ffb4a3;
+  color: var(--rose-soft);
 }
 
 .participant-list {
@@ -284,16 +284,16 @@ h1 span {
 }
 
 .participant-status[data-status="à l’heure"] {
-  color: #9fe3b1;
+  color: var(--rose-soft);
 }
 
 .participant-status[data-status="en retard"] {
-  color: var(--lime);
+  color: var(--cherry);
 }
 
 .participant-status[data-status="absent"],
 .participant-status[data-status="inconnu"] {
-  color: #ffb4a3;
+  color: var(--rose-soft);
 }
 
 .event-title {
@@ -306,7 +306,7 @@ h1 span {
 
 .event-title:hover,
 .event-title:focus-visible {
-  color: var(--lime);
+  color: var(--cherry);
 }
 
 .event-date {
@@ -357,15 +357,15 @@ h2 {
 }
 
 .auth-status[data-state="loading"] {
-  color: var(--lime);
+  color: var(--cherry);
 }
 
 .auth-status[data-state="success"] {
-  color: #9fe3b1;
+  color: var(--rose-soft);
 }
 
 .auth-status[data-state="error"] {
-  color: #ffb4a3;
+  color: var(--rose-soft);
 }
 
 .primary-button {
@@ -374,7 +374,7 @@ h2 {
   min-height: 44px;
   padding: 0 14px;
   border: 0;
-  background: var(--lime);
+  background: var(--cherry);
   color: var(--ink);
   cursor: pointer;
   font-size: 12px;
@@ -384,7 +384,7 @@ h2 {
 }
 
 .primary-button:hover {
-  background: var(--lime-soft);
+  background: var(--rose-soft);
   transform: translateY(-1px);
 }
 
@@ -442,7 +442,7 @@ h2 {
 .footer-line {
   width: 24px;
   height: 2px;
-  background: var(--lime);
+  background: var(--cherry);
 }
 
 @media (max-width: 340px) {
