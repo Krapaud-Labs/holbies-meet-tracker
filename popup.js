@@ -435,6 +435,7 @@ function renderConnectedAccount(account) {
   accountEmail.textContent = account.email && account.email !== label ? account.email : '';
   accountAvatar.textContent = (label.trim()[0] || 'G').toUpperCase();
   connectedAccount.hidden = false;
+  signInButton.hidden = true;
 }
 
 function setLoading(isLoading) {
@@ -454,6 +455,7 @@ function resetSession() {
   exportButton.disabled = true;
   localExportButton.hidden = true;
   signOutButton.hidden = true;
+  signInButton.hidden = false;
   connectedAccount.hidden = true;
   accountName.textContent = 'Compte Google connecté';
   accountEmail.textContent = '';
