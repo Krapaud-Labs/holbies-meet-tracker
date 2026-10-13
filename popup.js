@@ -45,7 +45,9 @@ async function fetchWithRetry(url, options, attempts = 2) {
     try {
       const response = await fetch(url, options);
       if (response.ok) return response;
+      const body = await response.text();
       lastError = new Error(`request-failed-${response.status}`);
+      lastError.apiMessage = body;
     } catch (error) {
       lastError = error;
     }
@@ -132,7 +134,13 @@ async function exportAttendanceToSheets() {
     exportButton.textContent = 'Exporter à nouveau';
   } catch (error) {
     const status = error?.message?.match(/request-failed-(\d+)/)?.[1];
-    const detail = status ? ` (HTTP ${status})` : '';
+    let detail = status ? ` (HTTP ${status})` : '';
+    try {
+      const apiError = JSON.parse(error?.apiMessage || '{}')?.error?.message;
+      if (apiError) detail += ` : ${apiError}`;
+    } catch {
+      // The local CSV fallback remains available when the API returns non-JSON data.
+    }
     setAttendanceState('unavailable', `Export Google Sheets impossible${detail}. Réessayez ou téléchargez le CSV local.`);
     exportButton.textContent = 'Réessayer l’export';
     localExportButton.hidden = false;
