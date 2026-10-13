@@ -43,9 +43,9 @@ a {
 .popup-shell {
   width: 720px;
   min-width: 720px;
-  min-height: 480px;
+  min-height: 0;
   margin: 0 auto;
-  padding: 22px 22px 18px;
+  padding: 10px 14px 8px;
   overflow: hidden;
   background:
     radial-gradient(circle at 100% 0, rgba(255, 45, 85, 0.18), transparent 34%),
@@ -55,7 +55,7 @@ a {
 .dashboard-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
+  gap: 10px;
   align-items: start;
 }
 
@@ -85,7 +85,7 @@ a {
 
 .topbar {
   justify-content: space-between;
-  margin-bottom: 48px;
+  margin-bottom: 10px;
 }
 
 .brand {
@@ -128,7 +128,7 @@ a {
 }
 
 .hero {
-  margin-bottom: 28px;
+  margin-bottom: 10px;
 }
 
 .eyebrow,
@@ -148,8 +148,8 @@ p {
 }
 
 h1 {
-  margin-bottom: 14px;
-  font-size: clamp(35px, 11vw, 48px);
+  margin-bottom: 5px;
+  font-size: clamp(25px, 6vw, 30px);
   line-height: 0.94;
   letter-spacing: -0.07em;
 }
@@ -162,36 +162,37 @@ h1 span {
   max-width: 280px;
   margin-bottom: 0;
   color: var(--muted);
-  line-height: 1.5;
+  font-size: 10px;
+  line-height: 1.25;
 }
 
 .status-card {
-  padding: 18px;
+  padding: 9px;
   border: 1px solid var(--line);
   border-top: 3px solid var(--cherry);
   background: var(--ink-soft);
 }
 
 .calendar-card {
-  margin-top: 14px;
-  padding: 18px;
+  margin-top: 0;
+  padding: 9px;
   border: 1px solid var(--line);
   background: var(--ink-soft);
 }
 
 .attendance-card {
-  margin-top: 14px;
-  padding: 18px;
+  margin-top: 0;
+  padding: 9px;
   border: 1px solid var(--line);
   background: var(--ink-soft);
 }
 
 .calendar-status {
-  min-height: 18px;
+  min-height: 14px;
   margin: -2px 0 0;
   color: var(--muted);
-  font-size: 12px;
-  line-height: 1.45;
+  font-size: 10px;
+  line-height: 1.25;
 }
 
 .calendar-status[data-state="loading"] {
@@ -208,14 +209,14 @@ h1 span {
 
 .event-list {
   display: grid;
-  gap: 10px;
-  margin: 14px 0 0;
+  gap: 6px;
+  margin: 7px 0 0;
   padding: 0;
   list-style: none;
 }
 
 .event-item {
-  padding: 11px 12px;
+  padding: 6px 7px;
   border-left: 2px solid var(--cherry);
   background: rgba(245, 241, 233, 0.06);
 }
@@ -228,11 +229,11 @@ h1 span {
 .event-actions {
   display: flex;
   justify-content: flex-end;
-  margin-top: 10px;
+  margin-top: 4px;
 }
 
 .secondary-button {
-  padding: 7px 10px;
+  padding: 5px 7px;
   border: 1px solid rgba(255, 45, 85, 0.7);
   background: transparent;
   color: var(--cherry);
@@ -252,7 +253,22 @@ h1 span {
 }
 
 .export-button {
-  margin-top: 14px;
+  margin-top: 8px;
+}
+
+.export-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.25;
+}
+
+.export-consent input {
+  flex: 0 0 auto;
+  margin: 1px 0 0;
 }
 
 .export-button:disabled {
@@ -261,11 +277,11 @@ h1 span {
 }
 
 .attendance-status {
-  min-height: 18px;
+  min-height: 14px;
   margin: -2px 0 0;
   color: var(--muted);
-  font-size: 12px;
-  line-height: 1.45;
+  font-size: 10px;
+  line-height: 1.3;
 }
 
 .attendance-status[data-state="ready"] {
@@ -278,8 +294,8 @@ h1 span {
 
 .participant-list {
   display: grid;
-  gap: 8px;
-  margin: 14px 0 0;
+  gap: 4px;
+  margin: 7px 0 0;
   padding: 0;
   list-style: none;
 }
@@ -287,12 +303,12 @@ h1 span {
 .attendance-summary {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-  margin: 16px 0;
+  gap: 5px;
+  margin: 7px 0;
 }
 
 .attendance-summary > div {
-  padding: 10px 8px;
+  padding: 4px 3px;
   border: 1px solid var(--line);
   background: rgba(255, 245, 247, 0.06);
   text-align: center;
@@ -305,9 +321,9 @@ h1 span {
 }
 
 .attendance-summary dd {
-  margin: 4px 0 0;
+  margin: 2px 0 0;
   color: var(--paper);
-  font-size: 20px;
+  font-size: 14px;
   font-weight: 800;
 }
 
@@ -315,8 +331,8 @@ h1 span {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 9px 10px;
+  gap: 6px;
+  padding: 5px 6px;
   background: rgba(245, 241, 233, 0.06);
 }
 
@@ -324,7 +340,7 @@ h1 span {
   min-width: 0;
   overflow: hidden;
   color: var(--paper);
-  font-size: 12px;
+  font-size: 10px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -332,7 +348,7 @@ h1 span {
 .participant-status {
   flex: 0 0 auto;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 8px;
   font-weight: 800;
   text-transform: uppercase;
 }
@@ -352,7 +368,7 @@ h1 span {
 
 .event-title {
   color: var(--paper);
-  font-size: 13px;
+  font-size: 10px;
   font-weight: 700;
   line-height: 1.35;
   text-decoration: none;
@@ -364,50 +380,51 @@ h1 span {
 }
 
 .event-date {
-  margin-top: 5px;
+  margin-top: 3px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 9px;
   line-height: 1.4;
 }
 
 .card-heading {
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 16px;
+  margin-bottom: 7px;
 }
 
 .card-kicker {
-  margin-bottom: 7px;
+  margin-bottom: 2px;
 }
 
 h2 {
   margin-bottom: 0;
-  font-size: 18px;
+  font-size: 13px;
   letter-spacing: -0.04em;
 }
 
 .card-icon {
   display: grid;
-  width: 32px;
-  height: 32px;
+  width: 22px;
+  height: 22px;
   place-items: center;
   border: 1px solid rgba(184, 167, 255, 0.62);
   color: var(--accent);
-  font-size: 20px;
+  font-size: 13px;
 }
 
 .card-copy {
-  margin-bottom: 18px;
+  margin-bottom: 7px;
   color: var(--muted);
-  line-height: 1.45;
+  font-size: 10px;
+  line-height: 1.2;
 }
 
 .auth-status {
   min-height: 18px;
-  margin: -4px 0 14px;
+  margin: -3px 0 5px;
   color: var(--muted);
-  font-size: 12px;
-  line-height: 1.45;
+  font-size: 10px;
+  line-height: 1.3;
 }
 
 .auth-status[data-state="loading"] {
@@ -425,18 +442,18 @@ h2 {
 .connected-account {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin: 14px 0;
-  padding: 10px;
+  gap: 7px;
+  margin: 5px 0;
+  padding: 5px;
   border: 1px solid var(--line);
   background: rgba(255, 245, 247, 0.06);
 }
 
 .account-avatar {
   display: grid;
-  width: 32px;
-  height: 32px;
-  flex: 0 0 32px;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
   place-items: center;
   border-radius: 50%;
   background: var(--cherry);
@@ -459,19 +476,19 @@ h2 {
 
 .account-details span {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 9px;
 }
 
 .primary-button {
   justify-content: space-between;
   width: 100%;
-  min-height: 44px;
-  padding: 0 14px;
+  min-height: 28px;
+  padding: 0 10px;
   border: 0;
   background: var(--cherry);
   color: var(--ink);
   cursor: pointer;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 800;
   text-align: left;
   transition: background-color 160ms ease, transform 160ms ease;
@@ -498,21 +515,21 @@ h2 {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 1px;
-  margin-top: 28px;
+  margin-top: 8px;
   background: var(--line);
 }
 
 .stat-item {
   min-width: 0;
-  padding: 14px 10px 12px;
+  padding: 5px 8px 4px;
   background: var(--ink);
 }
 
 .stat-value {
   display: block;
-  margin-bottom: 5px;
+  margin-bottom: 2px;
   color: var(--paper);
-  font-size: 19px;
+  font-size: 13px;
   font-weight: 800;
   letter-spacing: -0.06em;
 }
@@ -524,7 +541,7 @@ h2 {
 
 .footer-note {
   gap: 10px;
-  margin-top: 28px;
+  margin-top: 7px;
   color: var(--muted);
   font-size: 10px;
 }
