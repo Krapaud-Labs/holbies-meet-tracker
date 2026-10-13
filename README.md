@@ -6,9 +6,15 @@ Extension Chrome Manifest V3 pour préparer le suivi de présence des réunions 
 
 La popup adopte une direction sombre, rouge cerise, rose et blanc rosé inspirée de l'énergie visuelle du [site Holberton School France](https://www.holbertonschool.fr/). Elle utilise un asset hippocampe local, avec une alternative textuelle, des cartes lisibles, des titres courts, des appels à l'action explicites et des messages textuels pour chaque état.
 
-La version actuelle charge les événements Google Agenda, analyse les comptes rendus Meet liés, calcule des statuts de présence, affiche un résumé des personnes à l'heure, en retard ou absentes, et crée une nouvelle feuille Google Sheets avec le relevé courant. La popup adopte une largeur desktop de 720 px pour garder Connexion, Agenda et Présences visibles côte à côte. Les tests réels nécessitent un compte Google de test autorisé et les règles de confidentialité de l'établissement.
+La version actuelle charge les événements Google Agenda, analyse les comptes rendus Meet liés, calcule des statuts de présence, affiche un résumé des personnes à l'heure, en retard ou absentes, et conserve l'export Google Sheets comme option. Le backend VPS préparera une vraie page HTML sécurisée pour consulter les rapports de réunion. La popup adopte une largeur desktop de 720 px pour garder Connexion, Agenda et Présences visibles côte à côte. Les tests réels nécessitent un compte Google de test autorisé et les règles de confidentialité de l'établissement.
 
 Le bouton de connexion lance désormais le consentement Google via `chrome.identity` après une action explicite. Après connexion, et lors des réouvertures si Chrome possède encore un token valide, l'adresse du compte connecté est affichée dans la popup et le bouton de connexion laisse place à l'action de déconnexion. Les scopes retournés sont vérifiés et aucun token n'est persisté par l'extension. Voir [le parcours OAuth](docs/design/oauth-flow.md) pour les limites actuelles.
+
+## Backend Live VPS
+
+Le backend Live est préparé dans `backend/` pour un déploiement sur le VPS. Il limite déjà les mentors au domaine `@holbertonschool.com`, expose un contrat de session Live et inclut une configuration Docker avec PostgreSQL. Les données d'une session active restent temporaires ; la réception des événements Google Workspace et la persistance métier seront branchées avant le déploiement.
+
+Voir [la documentation backend](backend/README.md) pour lancer les tests et le service localement.
 
 ## Développement local
 
