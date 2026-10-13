@@ -27,7 +27,7 @@ Interface sobre et lisible, orientée confiance et vérification, avec l'énergi
 
 Documenter les composants réutilisables, les états loading, vide, erreur, succès, focus et désactivé. Décrire les transitions, durées, courbes, déclencheurs et comportement avec `prefers-reduced-motion`.
 
-La popup expose le statut de connexion, la réunion détectée, les erreurs et le résultat. Une zone dédiée liste les participants à vérifier manuellement. Les états prévus sont : prêt, connexion requise, réunion détectée, chargement, succès, erreur et données à vérifier.
+La popup expose le statut de connexion, la réunion détectée, les erreurs et le résultat. Sur une largeur standard, les cartes Agenda et Présences sont présentées côte à côte pour éviter une longue colonne verticale. Une zone dédiée liste les participants à vérifier manuellement. Les états prévus sont : prêt, connexion requise, réunion détectée, chargement, succès, erreur et données à vérifier.
 
 ## Responsive, accessibilité et performance
 
