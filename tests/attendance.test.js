@@ -24,4 +24,18 @@ assert.equal(calculateAttendance({ user: { anonymousUser: { displayName: 'Visite
   { startTime: '2026-10-13T09:01:00.000Z' },
 ], eventStart).status, 'identity-to-check');
 
+assert.equal(getSessionWindow(null), null);
+assert.deepEqual(getSessionWindow([
+  { startTime: '2026-10-13T09:00:00.000Z', endTime: 'date-invalide' },
+  { startTime: 'date-invalide', endTime: '2026-10-13T09:20:00.000Z' },
+]), null);
+
+assert.deepEqual(getSessionWindow([
+  { startTime: '2026-10-13T09:00:00.000Z' },
+  { startTime: '2026-10-13T09:05:00.000Z', endTime: '2026-10-13T09:20:00.000Z' },
+]), {
+  firstJoin: Date.parse('2026-10-13T09:00:00.000Z'),
+  lastLeave: null,
+});
+
 console.log('attendance tests passed');
