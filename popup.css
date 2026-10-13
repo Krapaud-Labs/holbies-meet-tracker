@@ -4,8 +4,9 @@
   --ink-soft: #1b1b1b;
   --paper: #f5f1e9;
   --muted: #b5afa5;
-  --orange: #ff5c35;
-  --orange-bright: #ff704d;
+  --lime: #d7ff00;
+  --lime-soft: #efff8a;
+  --accent: #b8a7ff;
   --line: rgba(245, 241, 233, 0.18);
   font-family: Arial, Helvetica, sans-serif;
 }
@@ -42,7 +43,7 @@ a {
   padding: 22px 22px 18px;
   overflow: hidden;
   background:
-    radial-gradient(circle at 100% 0, rgba(255, 92, 53, 0.18), transparent 34%),
+    radial-gradient(circle at 100% 0, rgba(215, 255, 0, 0.12), transparent 34%),
     var(--ink);
 }
 
@@ -69,7 +70,7 @@ a {
 }
 
 .brand strong {
-  color: var(--orange-bright);
+  color: var(--lime);
 }
 
 .brand-mark {
@@ -77,19 +78,26 @@ a {
   width: 28px;
   height: 28px;
   place-items: center;
-  background: var(--orange);
+  background: var(--lime);
   color: var(--ink);
   font-size: 17px;
   font-weight: 900;
   transform: rotate(-6deg);
 }
 
+.brand-mark img {
+  width: 21px;
+  height: 21px;
+  object-fit: contain;
+  filter: brightness(0);
+}
+
 .status-dot {
   width: 9px;
   height: 9px;
   border-radius: 50%;
-  background: var(--orange-bright);
-  box-shadow: 0 0 0 5px rgba(255, 112, 77, 0.12);
+  background: var(--lime);
+  box-shadow: 0 0 0 5px rgba(215, 255, 0, 0.12);
 }
 
 .hero {
@@ -100,7 +108,7 @@ a {
 .card-kicker,
 .stat-label {
   margin: 0;
-  color: var(--orange-bright);
+  color: var(--lime);
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.14em;
@@ -120,7 +128,7 @@ h1 {
 }
 
 h1 span {
-  color: var(--orange-bright);
+  color: var(--lime);
 }
 
 .hero-copy {
@@ -133,7 +141,7 @@ h1 span {
 .status-card {
   padding: 18px;
   border: 1px solid var(--line);
-  border-top: 3px solid var(--orange);
+  border-top: 3px solid var(--lime);
   background: var(--ink-soft);
 }
 
@@ -160,7 +168,7 @@ h1 span {
 }
 
 .calendar-status[data-state="loading"] {
-  color: var(--orange-bright);
+  color: var(--lime);
 }
 
 .calendar-status[data-state="error"] {
@@ -181,7 +189,7 @@ h1 span {
 
 .event-item {
   padding: 11px 12px;
-  border-left: 2px solid var(--orange);
+  border-left: 2px solid var(--lime);
   background: rgba(245, 241, 233, 0.06);
 }
 
@@ -198,9 +206,9 @@ h1 span {
 
 .secondary-button {
   padding: 7px 10px;
-  border: 1px solid rgba(255, 112, 77, 0.55);
+  border: 1px solid rgba(215, 255, 0, 0.58);
   background: transparent;
-  color: var(--orange-bright);
+  color: var(--lime);
   cursor: pointer;
   font-size: 11px;
   font-weight: 800;
@@ -208,7 +216,7 @@ h1 span {
 
 .secondary-button:hover,
 .secondary-button:focus-visible {
-  background: rgba(255, 92, 53, 0.12);
+  background: rgba(215, 255, 0, 0.12);
 }
 
 .secondary-button:focus-visible {
@@ -280,7 +288,7 @@ h1 span {
 }
 
 .participant-status[data-status="en retard"] {
-  color: var(--orange-bright);
+  color: var(--lime);
 }
 
 .participant-status[data-status="absent"],
@@ -298,7 +306,7 @@ h1 span {
 
 .event-title:hover,
 .event-title:focus-visible {
-  color: var(--orange-bright);
+  color: var(--lime);
 }
 
 .event-date {
@@ -329,8 +337,8 @@ h2 {
   width: 32px;
   height: 32px;
   place-items: center;
-  border: 1px solid rgba(255, 112, 77, 0.5);
-  color: var(--orange-bright);
+  border: 1px solid rgba(184, 167, 255, 0.62);
+  color: var(--accent);
   font-size: 20px;
 }
 
@@ -349,7 +357,7 @@ h2 {
 }
 
 .auth-status[data-state="loading"] {
-  color: var(--orange-bright);
+  color: var(--lime);
 }
 
 .auth-status[data-state="success"] {
@@ -366,7 +374,7 @@ h2 {
   min-height: 44px;
   padding: 0 14px;
   border: 0;
-  background: var(--orange);
+  background: var(--lime);
   color: var(--ink);
   cursor: pointer;
   font-size: 12px;
@@ -376,7 +384,7 @@ h2 {
 }
 
 .primary-button:hover {
-  background: var(--orange-bright);
+  background: var(--lime-soft);
   transform: translateY(-1px);
 }
 
@@ -434,7 +442,7 @@ h2 {
 .footer-line {
   width: 24px;
   height: 2px;
-  background: var(--orange);
+  background: var(--lime);
 }
 
 @media (max-width: 340px) {
