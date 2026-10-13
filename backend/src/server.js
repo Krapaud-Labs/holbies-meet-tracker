@@ -1,9 +1,11 @@
 import http from 'node:http';
 import { randomUUID } from 'node:crypto';
+import { createDatabase } from './database.js';
 import { applyMeetEvent, createLiveStore, decodeWorkspaceEvent, renderReportHtml, verifyGoogleAccessToken } from './live.js';
 
 const port = Number(process.env.PORT || 8080);
 const store = createLiveStore();
+const database = createDatabase();
 
 function json(response, status, body) {
   response.writeHead(status, { 'content-type': 'application/json; charset=utf-8' });
@@ -52,6 +54,7 @@ const server = http.createServer(async (request, response) => {
         createdAt: new Date().toISOString(),
       };
       store.upsert(session);
+      if (database) await database.saveSession(session);
       json(response, 201, session);
     } catch (error) {
       json(response, 400, { error: error.message });
@@ -86,6 +89,7 @@ const server = http.createServer(async (request, response) => {
         return;
       }
       applyMeetEvent(session, event);
+      if (database) await database.saveParticipantEvent(session.id, event.participantSession, event.type.endsWith('.left') ? 'left' : 'joined', event.eventTime || new Date().toISOString());
       json(response, 202, { accepted: true, processed: true, sessionId: session.id });
     } catch (error) {
       json(response, 400, { error: error.message });
