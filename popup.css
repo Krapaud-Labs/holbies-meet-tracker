@@ -144,6 +144,13 @@ h1 span {
   background: var(--ink-soft);
 }
 
+.attendance-card {
+  margin-top: 14px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  background: var(--ink-soft);
+}
+
 .calendar-status {
   min-height: 18px;
   margin: -2px 0 0;
@@ -181,6 +188,95 @@ h1 span {
 .event-title,
 .event-date {
   display: block;
+}
+
+.event-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
+.secondary-button {
+  padding: 7px 10px;
+  border: 1px solid rgba(255, 112, 77, 0.55);
+  background: transparent;
+  color: var(--orange-bright);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.secondary-button:hover,
+.secondary-button:focus-visible {
+  background: rgba(255, 92, 53, 0.12);
+}
+
+.secondary-button:focus-visible {
+  outline: 2px solid var(--paper);
+  outline-offset: 3px;
+}
+
+.attendance-status {
+  min-height: 18px;
+  margin: -2px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.attendance-status[data-state="ready"] {
+  color: #9fe3b1;
+}
+
+.attendance-status[data-state="unavailable"] {
+  color: #ffb4a3;
+}
+
+.participant-list {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.participant-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 10px;
+  background: rgba(245, 241, 233, 0.06);
+}
+
+.participant-identity {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--paper);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.participant-status {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.participant-status[data-status="à l’heure"] {
+  color: #9fe3b1;
+}
+
+.participant-status[data-status="en retard"] {
+  color: var(--orange-bright);
+}
+
+.participant-status[data-status="absent"],
+.participant-status[data-status="inconnu"] {
+  color: #ffb4a3;
 }
 
 .event-title {
