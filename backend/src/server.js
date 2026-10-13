@@ -1,6 +1,6 @@
 import http from 'node:http';
 import { randomUUID } from 'node:crypto';
-import { createLiveStore, renderReportHtml, verifyGoogleAccessToken } from './live.js';
+import { applyMeetEvent, createLiveStore, decodeWorkspaceEvent, renderReportHtml, verifyGoogleAccessToken } from './live.js';
 
 const port = Number(process.env.PORT || 8080);
 const store = createLiveStore();
@@ -72,6 +72,23 @@ const server = http.createServer(async (request, response) => {
     else {
       response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
       response.end(renderReportHtml(session));
+    }
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/v1/events/google') {
+    try {
+      const event = decodeWorkspaceEvent(await readBody(request));
+      const meetingId = event?.conferenceRecord?.name || event?.participantSession?.conferenceRecord;
+      const session = meetingId ? store.findByMeeting(meetingId) : null;
+      if (!event || !session) {
+        json(response, 202, { accepted: true, processed: false });
+        return;
+      }
+      applyMeetEvent(session, event);
+      json(response, 202, { accepted: true, processed: true, sessionId: session.id });
+    } catch (error) {
+      json(response, 400, { error: error.message });
     }
     return;
   }
