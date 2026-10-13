@@ -32,6 +32,13 @@
         </div>
         <p class="card-copy" id="auth-description">Connectez votre compte Google pour préparer le suivi de votre prochaine réunion.</p>
         <p class="auth-status" id="auth-status" role="status" aria-live="polite" aria-atomic="true">Connexion requise.</p>
+        <div class="connected-account" id="connected-account" hidden aria-live="polite">
+          <span class="account-avatar" id="account-avatar" aria-hidden="true">G</span>
+          <span class="account-details">
+            <strong id="account-name">Compte Google connecté</strong>
+            <span id="account-email"></span>
+          </span>
+        </div>
         <button class="primary-button" id="sign-in-button" type="button" aria-describedby="auth-status">
           <span>Se connecter avec Google</span>
           <span aria-hidden="true">→</span>
