@@ -216,6 +216,15 @@ h1 span {
   outline-offset: 3px;
 }
 
+.export-button {
+  margin-top: 14px;
+}
+
+.export-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
 .attendance-status {
   min-height: 18px;
   margin: -2px 0 0;
