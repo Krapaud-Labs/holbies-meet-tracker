@@ -19,7 +19,7 @@ const summaryAbsent = document.querySelector('#summary-absent');
 
 const CALENDAR_EVENTS_URL = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
 const MEET_RECORDS_URL = 'https://meet.googleapis.com/v2/conferenceRecords';
-const GOOGLE_TOKEN_INFO_URL = 'https://oauth2.googleapis.com/tokeninfo';
+const GOOGLE_USERINFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo';
 let currentAccessToken = null;
 let currentAttendanceRows = [];
 
@@ -420,7 +420,9 @@ function setAuthState(state, message) {
 }
 
 async function fetchConnectedAccount(token) {
-  const response = await fetch(`${GOOGLE_TOKEN_INFO_URL}?access_token=${encodeURIComponent(token)}`);
+  const response = await fetch(GOOGLE_USERINFO_URL, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
   if (!response.ok) throw new Error(`account-request-failed-${response.status}`);
   const profile = await response.json();
   return {
