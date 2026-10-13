@@ -154,7 +154,9 @@ function prepareAttendanceView(event) {
 
 function extractMeetingCode(hangoutLink) {
   try {
-    const url = new URL(hangoutLink);
+    const rawLink = String(hangoutLink || '').match(/https?:\/\/meet\.google\.com\/[a-z0-9-]+/i)?.[0];
+    if (!rawLink) return null;
+    const url = new URL(rawLink);
     if (url.hostname !== 'meet.google.com') return null;
     const code = url.pathname.split('/').filter(Boolean)[0];
     return /^[a-z0-9-]+$/i.test(code || '') ? code : null;
