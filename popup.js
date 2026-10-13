@@ -144,7 +144,7 @@ function prepareAttendanceView(event) {
   participantList.replaceChildren();
   currentAttendanceRows = [];
   exportButton.disabled = true;
-  if (!event.hangoutLink) {
+  if (!getMeetingLink(event)) {
     setAttendanceState('unavailable', 'Aucun lien Google Meet pour cet événement.');
     return;
   }
@@ -161,6 +161,16 @@ function extractMeetingCode(hangoutLink) {
   } catch {
     return null;
   }
+}
+
+function getMeetingLink(event) {
+  const candidates = [
+    event?.hangoutLink,
+    ...(event?.conferenceData?.entryPoints || []).map((entryPoint) => entryPoint.uri),
+    event?.location,
+    event?.description,
+  ];
+  return candidates.find((value) => extractMeetingCode(value)) || null;
 }
 
 async function fetchMeetPage(url, token) {
@@ -201,7 +211,7 @@ function formatAttendanceStatus(status) {
 }
 
 async function analyzeMeeting(event) {
-  const meetingCode = extractMeetingCode(event.hangoutLink);
+  const meetingCode = extractMeetingCode(getMeetingLink(event));
   if (!meetingCode || !currentAccessToken) {
     setAttendanceState('unavailable', 'Lien Meet ou connexion Google indisponible.');
     return;
@@ -307,7 +317,7 @@ function renderEvents(events) {
     const actions = document.createElement('div');
     actions.className = 'event-actions';
 
-    if (event.hangoutLink) {
+    if (getMeetingLink(event)) {
       const analyzeButton = document.createElement('button');
       analyzeButton.className = 'secondary-button';
       analyzeButton.type = 'button';
