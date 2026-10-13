@@ -130,8 +130,10 @@ async function exportAttendanceToSheets() {
     if (!updateResponse.ok) throw new Error(`sheets-update-failed-${updateResponse.status}`);
     setAttendanceState('success', 'Présences exportées dans une nouvelle feuille Google Sheets.');
     exportButton.textContent = 'Exporter à nouveau';
-  } catch {
-    setAttendanceState('unavailable', 'Export Google Sheets impossible. Réessayez ou téléchargez le CSV local.');
+  } catch (error) {
+    const status = error?.message?.match(/request-failed-(\d+)/)?.[1];
+    const detail = status ? ` (HTTP ${status})` : '';
+    setAttendanceState('unavailable', `Export Google Sheets impossible${detail}. Réessayez ou téléchargez le CSV local.`);
     exportButton.textContent = 'Réessayer l’export';
     localExportButton.hidden = false;
   } finally {
