@@ -50,6 +50,19 @@
         <ul class="event-list" id="event-list" aria-label="Événements Google Agenda"></ul>
       </section>
 
+      <section class="attendance-card" aria-labelledby="attendance-title">
+        <div class="card-heading">
+          <div>
+            <p class="card-kicker">ÉTAPE 03</p>
+            <h2 id="attendance-title">Présences</h2>
+          </div>
+          <span class="card-icon" aria-hidden="true">◎</span>
+        </div>
+        <p class="attendance-status" id="attendance-status" role="status" aria-live="polite" aria-atomic="true">Choisissez une réunion Google Meet pour afficher les participants.</p>
+        <ul class="participant-list" id="participant-list" aria-label="Participants et statuts"></ul>
+        <button class="secondary-button export-button" id="export-button" type="button" aria-describedby="attendance-status" aria-busy="false" disabled>Exporter vers Google Sheets</button>
+      </section>
+
       <div class="quick-stats" aria-label="Fonctions principales">
         <article class="stat-item">
           <span class="stat-value">100%</span>
@@ -70,6 +83,7 @@
         <p>Apprendre. Collaborer. Avancer.</p>
       </footer>
     </main>
+    <script src="attendance.js"></script>
     <script src="popup.js"></script>
   </body>
 </html>
