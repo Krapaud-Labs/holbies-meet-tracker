@@ -1,10 +1,12 @@
 const signInButton = document.querySelector('#sign-in-button');
+const signOutButton = document.querySelector('#sign-out-button');
 const authStatus = document.querySelector('#auth-status');
 const calendarStatus = document.querySelector('#calendar-status');
 const eventList = document.querySelector('#event-list');
 const attendanceStatus = document.querySelector('#attendance-status');
 const participantList = document.querySelector('#participant-list');
 const exportButton = document.querySelector('#export-button');
+const exportConsent = document.querySelector('#export-consent');
 
 const CALENDAR_EVENTS_URL = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
 const MEET_RECORDS_URL = 'https://meet.googleapis.com/v2/conferenceRecords';
@@ -54,7 +56,7 @@ function setAttendanceState(state, message) {
 function renderAttendanceRows(rows) {
   participantList.replaceChildren();
   currentAttendanceRows = rows;
-  exportButton.disabled = rows.length === 0;
+  exportButton.disabled = rows.length === 0 || !exportConsent.checked;
 
   rows.forEach((row) => {
     const item = document.createElement('li');
@@ -75,7 +77,7 @@ function renderAttendanceRows(rows) {
 }
 
 async function exportAttendanceToSheets() {
-  if (!currentAccessToken || currentAttendanceRows.length === 0) return;
+  if (!currentAccessToken || currentAttendanceRows.length === 0 || !exportConsent.checked) return;
 
   exportButton.disabled = true;
   exportButton.setAttribute('aria-busy', 'true');
@@ -112,7 +114,7 @@ async function exportAttendanceToSheets() {
     exportButton.textContent = 'Réessayer l’export';
   } finally {
     exportButton.setAttribute('aria-busy', 'false');
-    exportButton.disabled = currentAttendanceRows.length === 0;
+    exportButton.disabled = currentAttendanceRows.length === 0 || !exportConsent.checked;
   }
 }
 
@@ -361,6 +363,30 @@ function setLoading(isLoading) {
     : 'Se connecter avec Google';
 }
 
+function resetSession() {
+  currentAccessToken = null;
+  currentAttendanceRows = [];
+  participantList.replaceChildren();
+  eventList.replaceChildren();
+  exportConsent.checked = false;
+  exportButton.disabled = true;
+  signOutButton.hidden = true;
+  setAuthState('ready', 'Compte déconnecté.');
+  setCalendarState('ready', 'Connectez-vous pour charger vos événements.');
+  setAttendanceState('ready', 'Choisissez une réunion Google Meet pour afficher les participants.');
+}
+
+async function disconnectGoogleAccount() {
+  signOutButton.disabled = true;
+  try {
+    if (currentAccessToken) await chrome.identity.removeCachedAuthToken({ token: currentAccessToken });
+    if (chrome.identity.clearAllCachedAuthTokens) await chrome.identity.clearAllCachedAuthTokens();
+  } finally {
+    resetSession();
+    signOutButton.disabled = false;
+  }
+}
+
 function connectGoogleAccount() {
   setLoading(true);
   setAuthState('loading', 'Ouverture de la connexion Google…');
@@ -376,6 +402,7 @@ function connectGoogleAccount() {
 
       setLoading(false);
       setAuthState('success', 'Compte Google connecté.');
+      signOutButton.hidden = false;
       currentAccessToken = token;
       return loadCalendarEvents(token).catch(() => {
         setCalendarState('error', 'Impossible de charger votre agenda. Réessayez après la connexion.');
@@ -388,4 +415,8 @@ function connectGoogleAccount() {
 }
 
 signInButton.addEventListener('click', connectGoogleAccount);
+signOutButton.addEventListener('click', disconnectGoogleAccount);
+exportConsent.addEventListener('change', () => {
+  exportButton.disabled = currentAttendanceRows.length === 0 || !exportConsent.checked;
+});
 exportButton.addEventListener('click', exportAttendanceToSheets);
