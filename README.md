@@ -8,6 +8,8 @@ La popup adopte une direction sombre et orange inspirée de l'énergie visuelle 
 
 La version actuelle est un prototype d'interface : l'état « connexion requise » est rendu et vérifié dans Chrome. Les états réunion détectée, collecte, vérification et export restent à relier au futur comportement métier. La collecte Meet et l'écriture dans Sheets ne sont pas encore réalisées.
 
+Le bouton de connexion lance désormais le consentement Google via `chrome.identity` après une action explicite. Les scopes retournés sont vérifiés et aucun token n'est persisté par l'extension. Voir [le parcours OAuth](docs/design/oauth-flow.md) pour les limites actuelles.
+
 ## Développement local
 
 1. Ouvrir `chrome://extensions` dans Chrome.
