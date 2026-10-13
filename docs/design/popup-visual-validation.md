@@ -3,9 +3,8 @@
 ## Exécution
 
 - Date : 2026-10-13
-- Branche : `feat/holberton-popup-theme`
-- Commit d'interface : `1968b05`
-- Commit de documentation : `8807545`
+- Branche : `feat/holberton-cherry-palette`
+- Palette : rouge cerise, rose et blanc rosé
 - URL locale de contrôle : `http://127.0.0.1:8765/popup.html`
 - Source servie : copie temporaire isolée contenant uniquement `popup.html` et `popup.css`
 
@@ -13,11 +12,11 @@
 
 La popup s'affiche avec :
 
-- fond charbon et accent orange ;
-- marque textuelle et en-tête ;
+- fond encre prune et accents rouge cerise/rose ;
+- logo hippocampe local et en-tête ;
 - titre principal à deux niveaux ;
 - carte « Connexion requise » ;
-- bouton d'action orange ;
+- bouton d'action cerise ;
 - statistiques et pied de page ;
 - hiérarchie lisible dans la largeur d'une popup Chrome.
 
@@ -29,6 +28,6 @@ La structure d'accessibilité expose un lien d'accès au contenu, deux titres hi
 - `git diff --check` : réussi
 - aucune ressource externe : réussi
 - `:focus-visible` et `prefers-reduced-motion` présents : réussi
-- ratios mesurés sur les tokens CSS : crème/charbon `16.89:1`, orange clair/charbon `6.96:1`
+- ratios mesurés sur les tokens CSS : blanc rosé/encre prune `18.02:1`, cerise/encre prune `5.28:1`, rose doux/encre prune `8.79:1`
 
 Cette preuve concerne le prototype visuel et l'état « connexion requise ». Les flux OAuth, Meet, Sheets et les autres états métier restent hors de cette validation.
