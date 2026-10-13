@@ -11,6 +11,21 @@ const MEET_RECORDS_URL = 'https://meet.googleapis.com/v2/conferenceRecords';
 let currentAccessToken = null;
 let currentAttendanceRows = [];
 
+function normalizeEmail(email) {
+  return typeof email === 'string' ? email.trim().toLowerCase() : null;
+}
+
+function formatExportDate(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '' : date.toLocaleString('fr-FR');
+}
+
+function splitName(name) {
+  const parts = String(name || 'Participant inconnu').trim().split(/\s+/);
+  return { firstName: parts.shift() || '', lastName: parts.join(' ') };
+}
+
 function setCalendarState(state, message) {
   calendarStatus.dataset.state = state;
   calendarStatus.textContent = message;
@@ -73,7 +88,15 @@ async function exportAttendanceToSheets() {
     });
     if (!createResponse.ok) throw new Error(`sheets-create-failed-${createResponse.status}`);
     const spreadsheet = await createResponse.json();
-    const values = [['Participant', 'Statut'], ...currentAttendanceRows.map((row) => [row.name, row.status])];
+    const values = [['Prénom', 'Nom', 'Date', 'Réunion', 'Arrivée', 'Départ', 'Statut'], ...currentAttendanceRows.map((row) => [
+      row.firstName,
+      row.lastName,
+      row.date,
+      row.meeting,
+      row.arrival,
+      row.departure,
+      row.status,
+    ])];
     const sheetTitle = spreadsheet.sheets?.[0]?.properties?.title || 'Sheet1';
     const range = encodeURIComponent(`${sheetTitle}!A1:B${values.length}`);
     const updateResponse = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(spreadsheet.spreadsheetId)}/values/${range}?valueInputOption=RAW`, {
@@ -180,12 +203,45 @@ async function analyzeMeeting(event) {
 
     const participantsUrl = `${MEET_RECORDS_URL}/${record.name.split('/').pop()}/participants?pageSize=250`;
     const participants = await fetchAllMeetPages(participantsUrl, 'participants', currentAccessToken);
-    const rows = await Promise.all(participants.map(async (participant) => {
-      const participantName = participant.name.split('/').pop();
+    const participantRows = await Promise.all(participants.map(async (participant) => {
+      const participantName = participant.name?.split('/').pop();
+      if (!participantName) return null;
       const sessionsUrl = `${MEET_RECORDS_URL}/${record.name.split('/').pop()}/participants/${participantName}/participantSessions?pageSize=250`;
       const sessions = await fetchAllMeetPages(sessionsUrl, 'participantSessions', currentAccessToken);
       const result = MeetAttendance.calculateAttendance(participant, sessions, event.start?.dateTime || event.start?.date);
-      return { name: result.name, status: formatAttendanceStatus(result.status) };
+      const name = splitName(result.name);
+      return {
+        ...name,
+        name: result.name,
+        email: normalizeEmail(participant.user?.signedinUser?.email),
+        status: formatAttendanceStatus(result.status),
+        arrival: formatExportDate(result.firstJoin),
+        departure: formatExportDate(result.lastLeave),
+      };
+    }));
+
+    const byEmail = new Map(participantRows.filter(Boolean).filter((row) => row.email).map((row) => [row.email, row]));
+    const invitedRows = (event.attendees || [])
+      .filter((attendee) => normalizeEmail(attendee.email))
+      .map((attendee) => {
+        const email = normalizeEmail(attendee.email);
+        const match = byEmail.get(email);
+        const name = splitName(attendee.displayName || attendee.email);
+        return match || {
+          ...name,
+          name: attendee.displayName || attendee.email,
+          email,
+          status: 'absent',
+          arrival: '',
+          departure: '',
+        };
+      });
+    const invitedEmails = new Set(invitedRows.map((row) => row.email));
+    const unidentifiedRows = participantRows.filter((row) => row && (!row.email || !invitedEmails.has(row.email)));
+    const rows = [...invitedRows, ...unidentifiedRows].map((row) => ({
+      ...row,
+      date: formatEventDate(event),
+      meeting: event.summary || 'Réunion Google Meet',
     }));
 
     renderAttendanceRows(rows);
