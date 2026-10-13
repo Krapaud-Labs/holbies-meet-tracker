@@ -41,7 +41,7 @@ a {
 }
 
 .popup-shell {
-  width: min(100%, 380px);
+  width: min(100%, 720px);
   min-height: 480px;
   margin: 0 auto;
   padding: 22px 22px 18px;
@@ -49,6 +49,27 @@ a {
   background:
     radial-gradient(circle at 100% 0, rgba(255, 45, 85, 0.18), transparent 34%),
     var(--ink);
+}
+
+.workflow-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.workflow-grid > section {
+  min-width: 0;
+}
+
+@media (max-width: 560px) {
+  .popup-shell {
+    width: min(100%, 380px);
+  }
+
+  .workflow-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .topbar,
