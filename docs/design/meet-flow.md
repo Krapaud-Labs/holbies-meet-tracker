@@ -21,6 +21,8 @@ Depuis un événement Google Agenda contenant un lien Meet, l'extension recherch
 
 Chaque réponse paginée doit être parcourue avec `nextPageToken`. Les reconnexions sont conservées comme plusieurs sessions et agrégées par participant.
 
+La popup affiche ensuite un résumé séparé des statuts `à l'heure`, `en retard` et `absent`. Les participants dont l'identité doit être vérifiée restent dans la liste détaillée sans être comptés dans ces trois catégories.
+
 Sources : [conferenceRecords.list](https://developers.google.com/workspace/meet/api/reference/rest/v2/conferenceRecords/list), [participants](https://developers.google.com/workspace/meet/api/guides/participants), [participantSessions.list](https://developers.google.com/workspace/meet/api/reference/rest/v2/conferenceRecords.participants.participantSessions/list).
 
 ## Statuts affichés
