@@ -8,6 +8,10 @@ const participantList = document.querySelector('#participant-list');
 const exportButton = document.querySelector('#export-button');
 const exportConsent = document.querySelector('#export-consent');
 const localExportButton = document.querySelector('#local-export-button');
+const attendanceSummary = document.querySelector('#attendance-summary');
+const summaryOnTime = document.querySelector('#summary-on-time');
+const summaryLate = document.querySelector('#summary-late');
+const summaryAbsent = document.querySelector('#summary-absent');
 
 const CALENDAR_EVENTS_URL = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
 const MEET_RECORDS_URL = 'https://meet.googleapis.com/v2/conferenceRecords';
@@ -86,6 +90,16 @@ function setAttendanceState(state, message) {
 function renderAttendanceRows(rows) {
   participantList.replaceChildren();
   currentAttendanceRows = rows;
+  const counts = rows.reduce((summary, row) => {
+    if (row.status === 'à l’heure') summary.onTime += 1;
+    else if (row.status === 'en retard') summary.late += 1;
+    else if (row.status === 'absent') summary.absent += 1;
+    return summary;
+  }, { onTime: 0, late: 0, absent: 0 });
+  summaryOnTime.textContent = String(counts.onTime);
+  summaryLate.textContent = String(counts.late);
+  summaryAbsent.textContent = String(counts.absent);
+  attendanceSummary.hidden = rows.length === 0;
   exportButton.disabled = rows.length === 0 || !exportConsent.checked;
 
   rows.forEach((row) => {
@@ -153,6 +167,7 @@ async function exportAttendanceToSheets() {
 function prepareAttendanceView(event) {
   participantList.replaceChildren();
   currentAttendanceRows = [];
+  attendanceSummary.hidden = true;
   exportButton.disabled = true;
   if (!getMeetingLink(event)) {
     setAttendanceState('unavailable', 'Aucun lien Google Meet pour cet événement.');

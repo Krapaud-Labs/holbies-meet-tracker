@@ -257,6 +257,33 @@ h1 span {
   list-style: none;
 }
 
+.attendance-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 16px 0;
+}
+
+.attendance-summary > div {
+  padding: 10px 8px;
+  border: 1px solid var(--line);
+  background: rgba(255, 245, 247, 0.06);
+  text-align: center;
+}
+
+.attendance-summary dt {
+  color: var(--muted);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.attendance-summary dd {
+  margin: 4px 0 0;
+  color: var(--paper);
+  font-size: 20px;
+  font-weight: 800;
+}
+
 .participant-item {
   display: flex;
   align-items: center;
