@@ -14,7 +14,7 @@ Référence technique : [API Chrome Identity](https://developer.chrome.com/docs/
 | `calendar.events.readonly` | Lire l'événement Agenda et ses invités | Lors de l'identification de la réunion |
 | `drive.file` | Créer ou gérer les fichiers Sheets autorisés par l'utilisateur | Au moment de l'export |
 
-Les appels réels aux API Google ne sont pas encore implémentés. Aucun `host_permissions` n'est donc ajouté à ce stade. Toute permission réseau future devra être limitée aux domaines et appels réellement nécessaires.
+La lecture Google Agenda est maintenant implémentée en lecture seule sur `https://www.googleapis.com/*`. Cette permission réseau est limitée au domaine nécessaire à l'API Calendar ; aucune permission générique n'est utilisée. Les appels Meet et Sheets ne sont pas encore implémentés.
 
 ## États et erreurs
 
@@ -23,11 +23,11 @@ Les appels réels aux API Google ne sont pas encore implémentés. Aucun `host_p
 - `Compte Google connecté` : succès uniquement si un token et tous les scopes déclarés sont retournés.
 - `Autorisations incomplètes` ou refus utilisateur : message explicite, sans détail sensible.
 
-Le code ne conserve pas le token après le callback. Lorsqu'un appel API futur recevra une réponse `401`, il devra appeler `chrome.identity.removeCachedAuthToken()` puis demander un nouveau token. Une action de déconnexion avec `clearAllCachedAuthTokens()` devra être conçue avant une livraison fonctionnelle complète.
+Le code ne conserve pas le token après le callback. L'appel Agenda expire après huit secondes et supprime le token du cache Chrome en cas de réponse `401`. Une nouvelle demande de token et une action de déconnexion avec `clearAllCachedAuthTokens()` devront être conçues avant une livraison fonctionnelle complète.
 
 ## Limites et décisions en attente
 
-- Le prototype ne vérifie pas encore un appel réel Meet, Agenda ou Sheets.
+- Le prototype vérifie l'appel réel Agenda uniquement lorsque l'extension est chargée dans Chrome avec un compte de test ; les appels Meet et Sheets ne sont pas encore implémentés.
 - `drive.file` devra être confirmé avec le choix du classeur cible.
 - La finalité pédagogique, l'information des participants, la conservation et la conformité de l'usage des données Meet doivent être validées avant toute collecte de présence.
 - Le test Chrome doit utiliser l'identifiant d'extension réellement configuré dans le client OAuth et un compte Google de test.
