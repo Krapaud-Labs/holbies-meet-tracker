@@ -1,0 +1,16 @@
+.codex/
+AGENTS.md
+
+# Fichiers locaux et secrets
+.env
+.env.*
+!.env.example
+.DS_Store
+
+# Dépendances et sorties de build
+node_modules/
+dist/
+build/
+coverage/
+
+# Le contrat du projet et les documents produits restent suivis par Git.
