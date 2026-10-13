@@ -22,7 +22,7 @@
         <p class="hero-copy">Centralisez vos présences Google Meet et gardez une vision claire de vos réunions.</p>
       </section>
 
-      <section class="status-card" aria-labelledby="setup-title">
+      <section class="status-card" aria-labelledby="setup-title" aria-describedby="auth-description">
         <div class="card-heading">
           <div>
             <p class="card-kicker">ÉTAPE 01</p>
@@ -30,8 +30,9 @@
           </div>
           <span class="card-icon" aria-hidden="true">↗</span>
         </div>
-        <p class="card-copy">Connectez votre compte Google pour préparer le suivi de votre prochaine réunion.</p>
-        <button class="primary-button" type="button">
+        <p class="card-copy" id="auth-description">Connectez votre compte Google pour préparer le suivi de votre prochaine réunion.</p>
+        <p class="auth-status" id="auth-status" role="status" aria-live="polite" aria-atomic="true">Connexion requise.</p>
+        <button class="primary-button" id="sign-in-button" type="button" aria-describedby="auth-status">
           <span>Se connecter avec Google</span>
           <span aria-hidden="true">→</span>
         </button>
@@ -57,5 +58,6 @@
         <p>Apprendre. Collaborer. Avancer.</p>
       </footer>
     </main>
+    <script src="popup.js"></script>
   </body>
 </html>
