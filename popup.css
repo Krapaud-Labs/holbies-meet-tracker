@@ -78,8 +78,7 @@ a {
 .topbar,
 .brand,
 .card-heading,
-.primary-button,
-.footer-note {
+.primary-button {
   display: flex;
   align-items: center;
 }
@@ -538,23 +537,6 @@ h2 {
 .stat-label {
   color: var(--muted);
   font-size: 8px;
-}
-
-.footer-note {
-  gap: 10px;
-  margin-top: 7px;
-  color: var(--muted);
-  font-size: 10px;
-}
-
-.footer-note p {
-  margin-bottom: 0;
-}
-
-.footer-line {
-  width: 24px;
-  height: 2px;
-  background: var(--cherry);
 }
 
 @media (max-width: 340px) {
