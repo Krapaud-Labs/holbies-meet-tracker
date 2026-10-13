@@ -51,15 +51,20 @@ a {
     var(--ink);
 }
 
-.workflow-grid {
+.dashboard-grid {
   display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
   align-items: start;
 }
 
+.dashboard-grid > section,
 .workflow-grid > section {
   min-width: 0;
+}
+
+.workflow-grid {
+  display: contents;
 }
 
 @media (max-width: 560px) {
@@ -67,7 +72,7 @@ a {
     width: min(100%, 380px);
   }
 
-  .workflow-grid {
+  .dashboard-grid {
     grid-template-columns: 1fr;
   }
 }
