@@ -474,35 +474,44 @@ async function disconnectGoogleAccount() {
   }
 }
 
+function finishGoogleConnection({ token, grantedScopes = [] }, message = 'Compte Google connecté.') {
+  const requiredScopes = chrome.runtime.getManifest().oauth2.scopes;
+  const hasRequiredScopes = requiredScopes.every((scope) => grantedScopes.includes(scope));
+
+  if (!token || !hasRequiredScopes) throw new Error('required-scopes-not-granted');
+
+  setLoading(false);
+  setAuthState('success', message);
+  signOutButton.hidden = false;
+  currentAccessToken = token;
+  return fetchConnectedAccount(token)
+    .then(renderConnectedAccount)
+    .catch(() => {
+      renderConnectedAccount({ email: '', name: 'Compte Google connecté' });
+    })
+    .then(() => loadCalendarEvents(token))
+    .catch(() => {
+      setCalendarState('error', 'Impossible de charger votre agenda. Réessayez après la connexion.');
+    });
+}
+
 function connectGoogleAccount() {
   setLoading(true);
   setAuthState('loading', 'Ouverture de la connexion Google…');
 
   chrome.identity.getAuthToken({ interactive: true })
-    .then(({ token, grantedScopes = [] }) => {
-      const requiredScopes = chrome.runtime.getManifest().oauth2.scopes;
-      const hasRequiredScopes = requiredScopes.every((scope) => grantedScopes.includes(scope));
-
-      if (!token || !hasRequiredScopes) {
-        throw new Error('required-scopes-not-granted');
-      }
-
-      setLoading(false);
-      setAuthState('success', 'Compte Google connecté.');
-      signOutButton.hidden = false;
-      currentAccessToken = token;
-      return fetchConnectedAccount(token)
-        .then(renderConnectedAccount)
-        .catch(() => {
-          renderConnectedAccount({ email: '', name: 'Compte Google connecté' });
-        })
-        .then(() => loadCalendarEvents(token)).catch(() => {
-        setCalendarState('error', 'Impossible de charger votre agenda. Réessayez après la connexion.');
-      });
-    })
+    .then((session) => finishGoogleConnection(session))
     .catch(() => {
       setLoading(false);
       setAuthState('error', 'Connexion impossible ou autorisations incomplètes. Réessayez depuis la popup.');
+    });
+}
+
+function restoreGoogleSession() {
+  chrome.identity.getAuthToken({ interactive: false })
+    .then((session) => finishGoogleConnection(session, 'Compte Google déjà connecté.'))
+    .catch(() => {
+      // Aucun token en cache : l'utilisateur verra l'action de connexion.
     });
 }
 
@@ -513,3 +522,4 @@ exportConsent.addEventListener('change', () => {
 });
 localExportButton.addEventListener('click', downloadLocalCsv);
 exportButton.addEventListener('click', exportAttendanceToSheets);
+restoreGoogleSession();
