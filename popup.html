@@ -36,6 +36,7 @@
           <span>Se connecter avec Google</span>
           <span aria-hidden="true">→</span>
         </button>
+        <button class="secondary-button" id="sign-out-button" type="button" hidden>Déconnecter le compte Google</button>
       </section>
 
       <section class="calendar-card" aria-labelledby="calendar-title">
@@ -60,6 +61,10 @@
         </div>
         <p class="attendance-status" id="attendance-status" role="status" aria-live="polite" aria-atomic="true">Choisissez une réunion Google Meet pour afficher les participants.</p>
         <ul class="participant-list" id="participant-list" aria-label="Participants et statuts"></ul>
+        <label class="export-consent">
+          <input id="export-consent" type="checkbox">
+          <span>J'autorise la création d'une feuille Sheets avec ces données de présence pour mon suivi.</span>
+        </label>
         <button class="secondary-button export-button" id="export-button" type="button" aria-describedby="attendance-status" aria-busy="false" disabled>Exporter vers Google Sheets</button>
       </section>
 
