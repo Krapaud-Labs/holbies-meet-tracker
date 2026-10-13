@@ -14,7 +14,7 @@ Référence technique : [API Chrome Identity](https://developer.chrome.com/docs/
 | `calendar.events.readonly` | Lire l'événement Agenda et ses invités | Lors de l'identification de la réunion |
 | `drive.file` | Créer ou gérer les fichiers Sheets autorisés par l'utilisateur | Au moment de l'export |
 
-La lecture Google Agenda est maintenant implémentée en lecture seule sur `https://www.googleapis.com/*`. Cette permission réseau est limitée au domaine nécessaire à l'API Calendar ; aucune permission générique n'est utilisée. Les appels Meet et Sheets ne sont pas encore implémentés.
+La lecture Google Agenda est implémentée en lecture seule sur `https://www.googleapis.com/*`. Les appels Meet utilisent `https://meet.googleapis.com/*`. Aucune permission générique n'est utilisée.
 
 ## États et erreurs
 
@@ -27,7 +27,7 @@ Le code ne conserve pas le token après le callback. L'appel Agenda expire aprè
 
 ## Limites et décisions en attente
 
-- Le prototype vérifie l'appel réel Agenda uniquement lorsque l'extension est chargée dans Chrome avec un compte de test ; les appels Meet et Sheets ne sont pas encore implémentés.
-- `drive.file` devra être confirmé avec le choix du classeur cible.
+- Les appels Agenda et Meet doivent être vérifiés dans Chrome avec un compte de test autorisé ; les contrôles locaux ne remplacent pas ce test réel.
+- L'export Sheets fera l'objet d'une branche fonctionnelle séparée.
 - La finalité pédagogique, l'information des participants, la conservation et la conformité de l'usage des données Meet doivent être validées avant toute collecte de présence.
 - Le test Chrome doit utiliser l'identifiant d'extension réellement configuré dans le client OAuth et un compte Google de test.
