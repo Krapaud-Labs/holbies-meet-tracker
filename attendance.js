@@ -19,12 +19,14 @@
   }
 
   function getSessionWindow(sessions) {
+    if (!Array.isArray(sessions)) return null;
+
     const validSessions = sessions
       .map((session) => ({
         start: Date.parse(session.startTime || ''),
         end: session.endTime ? Date.parse(session.endTime) : null,
       }))
-      .filter(({ start }) => !Number.isNaN(start));
+      .filter(({ start, end }) => !Number.isNaN(start) && (end === null || !Number.isNaN(end)));
 
     if (validSessions.length === 0) return null;
 
