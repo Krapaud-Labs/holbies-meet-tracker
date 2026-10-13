@@ -137,6 +137,72 @@ h1 span {
   background: var(--ink-soft);
 }
 
+.calendar-card {
+  margin-top: 14px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  background: var(--ink-soft);
+}
+
+.calendar-status {
+  min-height: 18px;
+  margin: -2px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.calendar-status[data-state="loading"] {
+  color: var(--orange-bright);
+}
+
+.calendar-status[data-state="error"] {
+  color: #ffb4a3;
+}
+
+.calendar-status[data-state="success"] {
+  color: #9fe3b1;
+}
+
+.event-list {
+  display: grid;
+  gap: 10px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.event-item {
+  padding: 11px 12px;
+  border-left: 2px solid var(--orange);
+  background: rgba(245, 241, 233, 0.06);
+}
+
+.event-title,
+.event-date {
+  display: block;
+}
+
+.event-title {
+  color: var(--paper);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+  text-decoration: none;
+}
+
+.event-title:hover,
+.event-title:focus-visible {
+  color: var(--orange-bright);
+}
+
+.event-date {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
 .card-heading {
   justify-content: space-between;
   gap: 12px;
