@@ -215,14 +215,22 @@ h1 span {
   overflow-y: auto;
   padding: 0 4px 0 0;
   list-style: none;
+  scrollbar-color: var(--cherry) var(--ink);
+  scrollbar-width: thin;
 }
 
 .event-list::-webkit-scrollbar {
   width: 5px;
 }
 
+.event-list::-webkit-scrollbar-track {
+  background: var(--ink);
+}
+
 .event-list::-webkit-scrollbar-thumb {
   background: var(--cherry);
+  border: 1px solid var(--ink);
+  border-radius: 999px;
 }
 
 .event-item {
