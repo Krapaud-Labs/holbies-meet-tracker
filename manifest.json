@@ -4,7 +4,8 @@
   "version": "0.1.0",
   "description": "Prépare le suivi de présence des réunions Google Meet.",
   "permissions": [
-    "identity"
+    "identity",
+    "downloads"
   ],
   "host_permissions": [
     "https://www.googleapis.com/*",
