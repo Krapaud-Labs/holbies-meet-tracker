@@ -6,7 +6,7 @@ Depuis un événement Google Agenda contenant un lien Meet, l'extension recherch
 
 ## Appels API
 
-1. Le code est extrait du lien `https://meet.google.com/abc-mnop-xyz`.
+1. Le lien est lu en priorité depuis `hangoutLink`, puis depuis `conferenceData.entryPoints`, le lieu ou la description de l'événement. Le code est extrait d'un lien `https://meet.google.com/abc-mnop-xyz`.
 2. Le compte rendu est recherché avec :
 
    `GET https://meet.googleapis.com/v2/conferenceRecords?filter=space.meeting_code%3D%22abc-mnop-xyz%22&pageSize=10`
