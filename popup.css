@@ -492,6 +492,14 @@ h2 {
   white-space: nowrap;
 }
 
+.account-details strong {
+  overflow-wrap: anywhere;
+  font-size: clamp(9px, 1.9vw, 12px);
+  line-height: 1.2;
+  text-overflow: clip;
+  white-space: normal;
+}
+
 .account-details span {
   overflow-wrap: anywhere;
   color: var(--muted);
