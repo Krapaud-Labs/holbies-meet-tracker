@@ -127,7 +127,7 @@ async function exportAttendanceToSheets() {
     const updateResponse = await fetchWithRetry(`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(spreadsheet.spreadsheetId)}/values/${range}?valueInputOption=RAW`, {
       method: 'PUT',
       headers: { Authorization: `Bearer ${currentAccessToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ range: `${sheetTitle}!A1`, majorDimension: 'ROWS', values }),
+      body: JSON.stringify({ range: `${sheetTitle}!A1:G${values.length}`, majorDimension: 'ROWS', values }),
     });
     if (!updateResponse.ok) throw new Error(`sheets-update-failed-${updateResponse.status}`);
     setAttendanceState('success', 'Présences exportées dans une nouvelle feuille Google Sheets.');
