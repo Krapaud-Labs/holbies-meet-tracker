@@ -493,8 +493,12 @@ h2 {
 }
 
 .account-details span {
+  overflow-wrap: anywhere;
   color: var(--muted);
-  font-size: 9px;
+  font-size: clamp(8px, 1.7vw, 10px);
+  line-height: 1.2;
+  text-overflow: clip;
+  white-space: normal;
 }
 
 .primary-button {
