@@ -24,7 +24,7 @@ La lecture Google Agenda est implémentée en lecture seule sur `https://www.goo
 - `Compte Google connecté` : succès uniquement si un token et tous les scopes déclarés sont retournés.
 - `Autorisations incomplètes` ou refus utilisateur : message explicite, sans détail sensible.
 
-Le code ne conserve pas le token après le callback. L'appel Agenda expire après huit secondes et supprime le token du cache Chrome en cas de réponse `401`. Une nouvelle demande de token et une action de déconnexion avec `clearAllCachedAuthTokens()` devront être conçues avant une livraison fonctionnelle complète.
+Le code ne conserve pas le token après le callback. L'appel Agenda expire après huit secondes et supprime le token du cache Chrome en cas de réponse `401`. L'action de déconnexion appelle `clearAllCachedAuthTokens()` et vide les résultats en mémoire.
 
 ## Limites et décisions en attente
 
