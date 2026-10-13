@@ -49,6 +49,9 @@ async function fetchWithRetry(url, options, attempts = 2) {
     } catch (error) {
       lastError = error;
     }
+    if (attempt < attempts - 1) {
+      await new Promise((resolve) => setTimeout(resolve, 750));
+    }
   }
   throw lastError;
 }
@@ -332,7 +335,7 @@ async function loadCalendarEvents(token) {
   const params = new URLSearchParams({
     timeMin: timeMin.toISOString(),
     timeMax: timeMax.toISOString(),
-    maxResults: '10',
+    maxResults: '50',
     singleEvents: 'true',
     orderBy: 'startTime',
   });
@@ -342,10 +345,10 @@ async function loadCalendarEvents(token) {
 
   let response;
   try {
-    response = await fetch(`${CALENDAR_EVENTS_URL}?${params}`, {
+    response = await fetchWithRetry(`${CALENDAR_EVENTS_URL}?${params}`, {
     headers: { Authorization: `Bearer ${token}` },
       signal: controller.signal,
-    });
+    }, 3);
   } finally {
     clearTimeout(timeout);
   }
