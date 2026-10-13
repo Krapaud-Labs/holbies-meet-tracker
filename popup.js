@@ -4,10 +4,12 @@ const calendarStatus = document.querySelector('#calendar-status');
 const eventList = document.querySelector('#event-list');
 const attendanceStatus = document.querySelector('#attendance-status');
 const participantList = document.querySelector('#participant-list');
+const exportButton = document.querySelector('#export-button');
 
 const CALENDAR_EVENTS_URL = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
 const MEET_RECORDS_URL = 'https://meet.googleapis.com/v2/conferenceRecords';
 let currentAccessToken = null;
+let currentAttendanceRows = [];
 
 function setCalendarState(state, message) {
   calendarStatus.dataset.state = state;
@@ -36,6 +38,8 @@ function setAttendanceState(state, message) {
 
 function renderAttendanceRows(rows) {
   participantList.replaceChildren();
+  currentAttendanceRows = rows;
+  exportButton.disabled = rows.length === 0;
 
   rows.forEach((row) => {
     const item = document.createElement('li');
@@ -55,8 +59,44 @@ function renderAttendanceRows(rows) {
   });
 }
 
+async function exportAttendanceToSheets() {
+  if (!currentAccessToken || currentAttendanceRows.length === 0) return;
+
+  exportButton.disabled = true;
+  exportButton.setAttribute('aria-busy', 'true');
+  exportButton.textContent = 'Export en cours…';
+  try {
+    const createResponse = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${currentAccessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ properties: { title: `Présences Meet - ${new Date().toLocaleDateString('fr-FR')}` } }),
+    });
+    if (!createResponse.ok) throw new Error(`sheets-create-failed-${createResponse.status}`);
+    const spreadsheet = await createResponse.json();
+    const values = [['Participant', 'Statut'], ...currentAttendanceRows.map((row) => [row.name, row.status])];
+    const sheetTitle = spreadsheet.sheets?.[0]?.properties?.title || 'Sheet1';
+    const range = encodeURIComponent(`${sheetTitle}!A1:B${values.length}`);
+    const updateResponse = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(spreadsheet.spreadsheetId)}/values/${range}?valueInputOption=RAW`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${currentAccessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ range: `${sheetTitle}!A1`, majorDimension: 'ROWS', values }),
+    });
+    if (!updateResponse.ok) throw new Error(`sheets-update-failed-${updateResponse.status}`);
+    setAttendanceState('success', 'Présences exportées dans une nouvelle feuille Google Sheets.');
+    exportButton.textContent = 'Exporter à nouveau';
+  } catch {
+    setAttendanceState('unavailable', 'Export Google Sheets impossible. Réessayez après la connexion.');
+    exportButton.textContent = 'Réessayer l’export';
+  } finally {
+    exportButton.setAttribute('aria-busy', 'false');
+    exportButton.disabled = currentAttendanceRows.length === 0;
+  }
+}
+
 function prepareAttendanceView(event) {
   participantList.replaceChildren();
+  currentAttendanceRows = [];
+  exportButton.disabled = true;
   if (!event.hangoutLink) {
     setAttendanceState('unavailable', 'Aucun lien Google Meet pour cet événement.');
     return;
@@ -122,6 +162,8 @@ async function analyzeMeeting(event) {
 
   setAttendanceState('loading', 'Recherche du compte rendu Meet…');
   participantList.replaceChildren();
+  currentAttendanceRows = [];
+  exportButton.disabled = true;
 
   try {
     const filter = `space.meeting_code = "${meetingCode}"`;
@@ -151,6 +193,8 @@ async function analyzeMeeting(event) {
       ? `${rows.length} participant${rows.length > 1 ? 's' : ''} trouvé${rows.length > 1 ? 's' : ''}.`
       : 'Aucun participant dans ce compte rendu.');
   } catch (error) {
+    currentAttendanceRows = [];
+    exportButton.disabled = true;
     const message = error.name === 'AbortError'
       ? 'La recherche Meet a dépassé le délai prévu.'
       : 'Impossible de charger les présences Meet. Vérifiez vos droits sur la réunion.';
@@ -288,3 +332,4 @@ function connectGoogleAccount() {
 }
 
 signInButton.addEventListener('click', connectGoogleAccount);
+exportButton.addEventListener('click', exportAttendanceToSheets);
