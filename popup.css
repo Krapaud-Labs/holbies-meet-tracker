@@ -56,12 +56,13 @@ a {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
-  align-items: start;
+  align-items: stretch;
 }
 
 .dashboard-grid > section,
 .workflow-grid > section {
   min-width: 0;
+  height: 100%;
 }
 
 .workflow-grid {
