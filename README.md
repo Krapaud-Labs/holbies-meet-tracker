@@ -12,6 +12,8 @@ Le bouton de connexion lance désormais le consentement Google via `chrome.ident
 
 ## Backend Live VPS
 
+Le service worker MV3 lance aussi un cycle périodique gratuit sur les réunions Agenda proches. Il crée la session et envoie les snapshots Meet même si la popup est fermée ou si le mentor ne rejoint pas la réunion. Le navigateur doit rester ouvert et le consentement Google doit avoir été accordé au moins une fois.
+
 Le backend Live est préparé dans `backend/` pour un déploiement sur le VPS. Il limite les mentors au domaine `@holbertonschool.com`, vérifie le propriétaire des sessions et rapports, expose un contrat de session Live et inclut une configuration Docker avec PostgreSQL. Il autorise le preflight CORS limité aux origines `chrome-extension://` pour que la popup puisse appeler le backend avec son jeton OAuth. La popup peut actualiser une session toutes les cinq secondes, ouvrir son rapport HTML et afficher la cause HTTP d’un échec backend. La connexion OAuth initiale reste limitée à Meet, Agenda et l’identité; Sheets/Drive ne sont demandés qu’au clic d’export. Le polling est la voie gratuite vérifiée; l’URL HTTPS active du tunnel gratuit est configurée dans `popup.js` et doit être renouvelée si le Quick Tunnel est relancé. L’activation Google Workspace Events/Pub/Sub est documentée dans [`docs/operations/google-events-pubsub.md`](docs/operations/google-events-pubsub.md) et nécessite une validation séparée du projet Cloud et du budget.
 
 Le runbook de déploiement gratuit et le compose de production sont documentés dans [`backend/README.md`](backend/README.md), avec un fichier `.env.production.example` qui ne contient aucun secret réel.
