@@ -22,6 +22,7 @@ La lecture Google Agenda est implémentée en lecture seule sur `https://www.goo
 - `Connexion requise` : aucun jeton demandé automatiquement.
 - `Connexion en cours` : bouton désactivé et message annoncé par `aria-live`.
 - `Compte Google connecté` : succès uniquement si un token et tous les scopes déclarés sont retournés.
+- Si Chrome ne termine pas `getAuthToken` sous 15 secondes, la popup revient à un état d'erreur actionnable au lieu de rester bloquée sur « Connexion en cours ». Il faut alors recharger l'extension depuis `chrome://extensions` et vérifier le compte test OAuth.
 
 Après l'obtention du token, l'extension interroge `https://www.googleapis.com/oauth2/v2/userinfo` avec le scope `userinfo.email` pour afficher l'adresse du compte utilisé. Si cette information n'est pas disponible, l'état reste connecté et affiche le libellé générique `Compte Google connecté`.
 

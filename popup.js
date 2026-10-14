@@ -29,6 +29,15 @@ let currentAccessToken = null;
 let currentAttendanceRows = [];
 let liveSessionId = null;
 let livePollTimer = null;
+const AUTH_TIMEOUT_MS = 15000;
+
+function withTimeout(promise, timeoutMs, errorCode) {
+  let timeoutId;
+  const timeout = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error(errorCode)), timeoutMs);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timeoutId));
+}
 
 function stopLiveTracking() {
   if (livePollTimer) clearInterval(livePollTimer);
@@ -550,16 +559,19 @@ function connectGoogleAccount() {
   setLoading(true);
   setAuthState('loading', 'Ouverture de la connexion Google…');
 
-  chrome.identity.getAuthToken({ interactive: true })
+  withTimeout(chrome.identity.getAuthToken({ interactive: true }), AUTH_TIMEOUT_MS, 'google-auth-timeout')
     .then((session) => finishGoogleConnection(session))
-    .catch(() => {
+    .catch((error) => {
       setLoading(false);
-      setAuthState('error', 'Connexion impossible ou autorisations incomplètes. Réessayez depuis la popup.');
+      const message = error?.message === 'google-auth-timeout'
+        ? 'Google ne répond pas. Rechargez l’extension puis réessayez.'
+        : 'Connexion impossible ou autorisations incomplètes. Réessayez depuis la popup.';
+      setAuthState('error', message);
     });
 }
 
 function restoreGoogleSession() {
-  chrome.identity.getAuthToken({ interactive: false })
+  withTimeout(chrome.identity.getAuthToken({ interactive: false }), AUTH_TIMEOUT_MS, 'google-auth-timeout')
     .then((session) => finishGoogleConnection(session, 'Compte Google déjà connecté.'))
     .catch(() => {
       // Aucun token en cache : l'utilisateur verra l'action de connexion.

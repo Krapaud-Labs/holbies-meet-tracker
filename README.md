@@ -4,7 +4,7 @@ Extension Chrome Manifest V3 pour préparer le suivi de présence des réunions 
 
 ## Interface
 
-La popup adopte une direction sombre, rouge cerise, rose et blanc rosé inspirée de l'énergie visuelle du [site Holberton School France](https://www.holbertonschool.fr/). Elle utilise un asset hippocampe local, avec une alternative textuelle, des cartes lisibles, des titres courts, des appels à l'action explicites et des messages textuels pour chaque état.
+La popup adopte une direction sombre, rouge cerise, rose et blanc rosé inspirée de l'énergie visuelle du [site Holberton School France](https://www.holbertonschool.fr/). Elle utilise un asset hippocampe local, avec une alternative textuelle, des cartes lisibles, des titres courts, des appels à l'action explicites et des messages textuels pour chaque état. Le parcours OAuth est borné à 15 secondes afin d'éviter une popup bloquée si Chrome ou Google ne répond pas.
 
 La version actuelle charge les événements Google Agenda, analyse les comptes rendus Meet liés, calcule des statuts de présence, affiche un résumé des personnes à l'heure, en retard ou absentes, et conserve l'export Google Sheets comme option. Le backend VPS préparera une vraie page HTML sécurisée pour consulter les rapports de réunion. La popup adopte une largeur desktop de 720 px pour garder Connexion, Agenda et Présences visibles côte à côte. Les tests réels nécessitent un compte Google de test autorisé et les règles de confidentialité de l'établissement.
 
