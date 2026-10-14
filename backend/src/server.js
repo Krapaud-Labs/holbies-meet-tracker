@@ -21,7 +21,7 @@ function setCorsHeaders(request, response) {
     response.setHeader('access-control-allow-origin', origin);
     response.setHeader('vary', 'Origin');
   }
-  response.setHeader('access-control-allow-methods', 'GET, POST, OPTIONS');
+  response.setHeader('access-control-allow-methods', 'GET, POST, PUT, OPTIONS');
   response.setHeader('access-control-allow-headers', 'Authorization, Content-Type, X-Google-Events-Secret');
   response.setHeader('access-control-max-age', '600');
 }
