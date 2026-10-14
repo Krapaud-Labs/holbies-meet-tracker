@@ -27,6 +27,8 @@ Copiez `production-env.template` vers `.env` (ou renseignez les variables dans D
 docker compose -f docker-compose.production.yml up -d --build
 ```
 
+Le service `tunnel` fournit un endpoint HTTPS temporaire gratuit via Cloudflare Tunnel Quick Tunnels, sans nom de domaine ni compte payant. Relisez son URL dans les logs Dokploy et renseignez-la dans `LIVE_BACKEND_URL` avant le test. Cette URL change si le tunnel est recréé et ne convient pas à une publication permanente.
+
 Lors du premier démarrage, PostgreSQL applique automatiquement `schema.sql` via le volume d’initialisation officiel de l’image. Ce mécanisme ne rejoue pas le fichier sur un volume déjà initialisé : utilisez une migration versionnée pour toute évolution ultérieure.
 
 Avant d’ouvrir le service, vérifiez `GET /health`, le certificat TLS, le secret du webhook et la sauvegarde du volume PostgreSQL. Pour revenir à l’image précédente, arrêtez le compose, restaurez la version Git précédente et relancez `up -d --build`. La création de l’abonnement Google Workspace Events/Pub/Sub reste une opération manuelle dans le projet Google autorisé.
