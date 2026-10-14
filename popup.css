@@ -24,6 +24,7 @@ body {
   margin: 0;
   width: 720px;
   min-width: 720px;
+  overflow: hidden;
   background: var(--ink);
 }
 
