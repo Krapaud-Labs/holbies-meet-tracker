@@ -2,7 +2,7 @@ services:
   backend:
     build: .
     restart: unless-stopped
-    env_file: .env.production
+    env_file: .env
     ports:
       - "127.0.0.1:${PORT:-8080}:8080"
     depends_on:
