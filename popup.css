@@ -195,6 +195,55 @@ h1 span {
   line-height: 1.25;
 }
 
+.calendar-card {
+  position: relative;
+}
+
+.calendar-menu {
+  position: absolute;
+  z-index: 2;
+  top: 48px;
+  right: 9px;
+  width: 235px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--ink-soft);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
+}
+
+.card-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.calendar-menu-button {
+  min-height: 28px;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--paper);
+  background: transparent;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.calendar-menu-button:hover,
+.calendar-menu-button:focus-visible {
+  border-color: var(--rose-soft);
+  color: var(--accent);
+  outline: 2px solid rgba(255, 141, 163, 0.35);
+  outline-offset: 2px;
+}
+
+.calendar-menu-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
 .calendar-picker {
   margin: 8px 0;
   padding: 8px 10px;

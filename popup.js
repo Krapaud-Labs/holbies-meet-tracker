@@ -6,8 +6,11 @@ const accountAvatar = document.querySelector('#account-avatar');
 const accountName = document.querySelector('#account-name');
 const accountEmail = document.querySelector('#account-email');
 const calendarStatus = document.querySelector('#calendar-status');
+const calendarMenu = document.querySelector('#calendar-menu');
 const calendarPicker = document.querySelector('#calendar-picker');
 const calendarPickerList = document.querySelector('#calendar-picker-list');
+const calendarSettingsButton = document.querySelector('#calendar-settings-button');
+const calendarRefreshButton = document.querySelector('#calendar-refresh-button');
 const eventList = document.querySelector('#event-list');
 const attendanceStatus = document.querySelector('#attendance-status');
 const analyzeOpenMeetButton = document.querySelector('#analyze-open-meet-button');
@@ -187,6 +190,7 @@ function setCalendarState(state, message) {
   calendarStatus.dataset.state = state;
   calendarStatus.textContent = message;
   calendarStatus.setAttribute('aria-busy', String(state === 'loading'));
+  calendarRefreshButton.disabled = state === 'loading' || !currentAccessToken;
 }
 
 async function getSavedCalendarIds() {
@@ -218,7 +222,12 @@ function renderCalendarPicker(calendars, selectedIds) {
     label.append(checkbox, name);
     calendarPickerList.append(label);
   });
-  calendarPicker.hidden = calendars.length === 0;
+  calendarMenu.hidden = calendars.length === 0;
+}
+
+function setCalendarPickerOpen(isOpen) {
+  calendarMenu.hidden = !isOpen || calendarCatalog.length === 0;
+  calendarSettingsButton.setAttribute('aria-expanded', String(isOpen));
 }
 
 function formatEventDate(event) {
@@ -788,6 +797,19 @@ async function showBackgroundTrackingStatus() {
 
 signInButton.addEventListener('click', connectGoogleAccount);
 signOutButton.addEventListener('click', disconnectGoogleAccount);
+calendarSettingsButton.addEventListener('click', () => {
+  setCalendarPickerOpen(calendarMenu.hidden);
+});
+calendarRefreshButton.addEventListener('click', () => {
+  if (!currentAccessToken) return;
+  loadCalendarEvents(currentAccessToken).catch(() => {});
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && !calendarMenu.hidden) {
+    setCalendarPickerOpen(false);
+    calendarSettingsButton.focus();
+  }
+});
 exportConsent.addEventListener('change', () => {
   exportButton.disabled = currentAttendanceRows.length === 0 || !exportConsent.checked;
 });
