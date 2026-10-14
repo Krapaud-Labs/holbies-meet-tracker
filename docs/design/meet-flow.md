@@ -3,6 +3,7 @@
 ## Objectif MVP
 
 Depuis un événement Google Agenda contenant un lien Meet, l'extension recherche le compte rendu de conférence, récupère les participants et agrège leurs sessions pour préparer un statut de présence. Un service worker MV3 relance ce cycle toutes les minutes dans la fenêtre de l'événement, crée la session backend et envoie les snapshots même si la popup est fermée et si le mentor ne rejoint pas le Meet.
+Après l'heure de fin Agenda, le worker attend dix minutes puis clôture la session via l'endpoint authentifié. Les invités restent donc « en attente » pendant la réunion et deviennent « absents » seulement après cette clôture ou un événement de fin Meet.
 
 ## Meet actuellement ouvert
 

@@ -4,6 +4,7 @@ const MEET_RECORDS_URL = 'https://meet.googleapis.com/v2/conferenceRecords';
 const TRACKING_ALARM = 'holbies-meet-tracking';
 const WINDOW_BEFORE_MS = 15 * 60 * 1000;
 const WINDOW_AFTER_MS = 6 * 60 * 60 * 1000;
+const SESSION_CLOSE_GRACE_MS = 10 * 60 * 1000;
 
 function extractMeetingCode(value) {
   const match = String(value || '').match(/meet\.google\.com\/([a-z0-9-]+)/i);
@@ -28,6 +29,11 @@ function isTrackableEvent(event, now = Date.now()) {
   const end = Date.parse(eventEnd(event) || '');
   return Boolean(getMeetingCode(event) && !Number.isNaN(start) && !Number.isNaN(end)
     && now >= start - WINDOW_BEFORE_MS && now <= end + WINDOW_AFTER_MS);
+}
+
+function shouldCloseEvent(event, now = Date.now()) {
+  const end = Date.parse(eventEnd(event) || '');
+  return !Number.isNaN(end) && now >= end + SESSION_CLOSE_GRACE_MS;
 }
 
 function expectedParticipants(event) {
@@ -122,6 +128,13 @@ async function syncEvent(event, token, sessions) {
     response = await update();
   }
   if (!response.ok) throw new Error(`backend-snapshot-failed-${response.status}`);
+  if (shouldCloseEvent(event)) {
+    const closeResponse = await fetch(`${BACKEND_URL}/api/v1/live/sessions/${encodeURIComponent(session.id)}/end`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!closeResponse.ok && closeResponse.status !== 409) throw new Error(`backend-close-failed-${closeResponse.status}`);
+  }
 }
 
 async function runTrackingCycle() {
@@ -141,4 +154,4 @@ if (typeof chrome !== 'undefined') {
   chrome.alarms.onAlarm.addListener((alarm) => { if (alarm.name === TRACKING_ALARM) runTrackingCycle().catch((error) => console.warn('Holbies tracking unavailable', error)); });
 }
 
-export { eventEnd, eventStart, expectedParticipants, extractMeetingCode, getMeetingCode, isTrackableEvent };
+export { eventEnd, eventStart, expectedParticipants, extractMeetingCode, getMeetingCode, isTrackableEvent, shouldCloseEvent };
