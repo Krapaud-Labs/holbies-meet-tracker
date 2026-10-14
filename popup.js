@@ -49,9 +49,11 @@ liveReportLink.addEventListener('click', async (event) => {
     const response = await fetchWithRetry(liveReportLink.href, {
       headers: { Authorization: `Bearer ${currentAccessToken}` },
     });
-    const reportUrl = URL.createObjectURL(await response.blob());
-    reportWindow.location.href = reportUrl;
-    setTimeout(() => URL.revokeObjectURL(reportUrl), 60000);
+    if (!response.ok) throw new Error(`report-request-failed-${response.status}`);
+    const reportHtml = await response.text();
+    reportWindow.document.open();
+    reportWindow.document.write(reportHtml);
+    reportWindow.document.close();
   } catch {
     reportWindow.close();
     liveStatus.textContent = 'Rapport live indisponible. Actualisez la session et réessayez.';
