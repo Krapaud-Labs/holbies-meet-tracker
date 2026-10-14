@@ -29,6 +29,7 @@ const SHEETS_SCOPES = ['https://www.googleapis.com/auth/drive.file', 'https://ww
 const LIVE_BACKEND_URL = 'https://beverage-aerospace-conventions-stewart.trycloudflare.com';
 let currentAccessToken = null;
 let currentAttendanceRows = [];
+let calendarEvents = [];
 let liveSessionId = null;
 let livePollTimer = null;
 const AUTH_TIMEOUT_MS = 15000;
@@ -248,7 +249,13 @@ async function detectOpenMeet() {
   const meetingCode = extractMeetingCode(tab?.url);
   analyzeOpenMeetButton.hidden = !meetingCode;
   if (meetingCode) {
-    analyzeOpenMeetButton.onclick = () => analyzeMeeting({
+    const meetTitle = String(tab?.title || '').replace(/^Meet\s*[–-]\s*/i, '').trim().toLocaleLowerCase('fr-FR');
+    const agendaEvent = calendarEvents.find((event) => extractMeetingCode(getMeetingLink(event)) === meetingCode)
+      || calendarEvents.find((event) => {
+        const summary = String(event.summary || '').trim().toLocaleLowerCase('fr-FR');
+        return summary && meetTitle && (meetTitle.includes(summary) || summary.includes(meetTitle));
+      });
+    analyzeOpenMeetButton.onclick = () => analyzeMeeting(agendaEvent || {
       summary: 'Meet ouvert',
       hangoutLink: `https://meet.google.com/${meetingCode}`,
       start: { dateTime: new Date().toISOString() },
@@ -480,6 +487,7 @@ async function loadCalendarEvents(token) {
 
   const data = await response.json();
   const events = Array.isArray(data.items) ? data.items : [];
+  calendarEvents = events;
   renderEvents(events);
 
   if (events.length === 0) {
