@@ -8,7 +8,7 @@ La réponse affiche uniquement le titre, la date et le lien Google Agenda fourni
 
 ## Sécurité et résilience
 
-- Scope OAuth : `calendar.events.readonly`.
+- Scopes OAuth : `calendar.readonly` pour lister les agendas, puis `calendar.events.readonly` pour lire les événements et leurs invités.
 - Permission réseau : `https://www.googleapis.com/*` uniquement.
 - Token transmis dans l'en-tête `Authorization`, sans journalisation ni persistance.
 - Timeout réseau : huit secondes avec `AbortController`.

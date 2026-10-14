@@ -11,6 +11,7 @@ Référence technique : [API Chrome Identity](https://developer.chrome.com/docs/
 | Scope | Usage prévu | Moment d'utilisation |
 | --- | --- | --- |
 | `meetings.space.readonly` | Lire les informations Meet nécessaires au suivi post-réunion | Après détection d'une réunion et décision de conformité |
+| `calendar.readonly` | Lister les agendas accessibles et lire leurs événements | Après connexion, pour afficher le sélecteur d'agendas et la semaine en cours |
 | `calendar.events.readonly` | Lire l'événement Agenda et ses invités | Lors de l'identification de la réunion |
 | `drive.file` | Créer ou gérer les fichiers Sheets autorisés par l'utilisateur | Au moment de l'export |
 | `spreadsheets` | Créer et remplir la feuille exportée | Au moment de l'export |
@@ -29,6 +30,7 @@ Après l'obtention du token, l'extension interroge `https://www.googleapis.com/o
 
 À l'ouverture de la popup, `chrome.identity.getAuthToken({ interactive: false })` tente de réutiliser le cache Chrome. Cette restauration silencieuse permet de conserver l'affichage du compte et l'agenda sans demander une nouvelle interaction. Une absence de token est traitée comme une première connexion.
 - `Autorisations incomplètes` ou refus utilisateur : message explicite, sans détail sensible.
+- Si la liste des agendas répond `403`, l'ancien jeton ne possède probablement pas le nouveau scope `calendar.readonly`. L'utilisateur doit se déconnecter puis se reconnecter afin que Chrome redemande cette autorisation.
 
 Le code ne conserve pas le token après le callback. L'appel Agenda expire après huit secondes et supprime le token du cache Chrome en cas de réponse `401`. L'action de déconnexion appelle `clearAllCachedAuthTokens()` et vide les résultats en mémoire.
 

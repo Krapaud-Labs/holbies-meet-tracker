@@ -740,8 +740,11 @@ function finishGoogleConnection({ token, grantedScopes = [] }, message = 'Compte
       renderConnectedAccount({ email: '', name: 'Compte Google connecté' });
     })
     .then(() => loadCalendarEvents(token))
-    .catch(() => {
-      setCalendarState('error', 'Impossible de charger votre agenda. Réessayez après la connexion.');
+    .catch((error) => {
+      const message = error?.message?.includes('calendar-list-request-failed-403')
+        ? 'Reconnectez-vous pour autoriser la lecture de vos agendas.'
+        : 'Impossible de charger votre agenda. Réessayez après la connexion.';
+      setCalendarState('error', message);
     });
 }
 
