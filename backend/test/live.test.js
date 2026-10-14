@@ -61,8 +61,19 @@ test('keeps an on-time participant on-time after a disconnect and reconnect', ()
 });
 
 test('marks expected participants who have not joined as absent', () => {
-  const statuses = getParticipantStatuses({ expectedParticipants: [{ email: 'absent@holbertonschool.com', displayName: 'Absent Person' }], participants: [] });
+  const statuses = getParticipantStatuses({ endedAt: '2026-10-13T10:00:00Z', expectedParticipants: [{ email: 'absent@holbertonschool.com', displayName: 'Absent Person' }], participants: [] });
   assert.deepEqual(statuses, [{ name: 'Absent Person', email: 'absent@holbertonschool.com', status: 'absent', lateMinutes: 0 }]);
+});
+
+test('keeps an invited participant pending while the conference is active', () => {
+  const statuses = getParticipantStatuses({ expectedParticipants: [{ email: 'pending@holbertonschool.com', displayName: 'Pending Person' }], participants: [] });
+  assert.deepEqual(statuses, [{ name: 'Pending Person', email: 'pending@holbertonschool.com', status: 'waiting', lateMinutes: 0 }]);
+});
+
+test('closes an active session only when Meet reports the conference ended', () => {
+  const session = { participants: [], expectedParticipants: [] };
+  applyMeetEvent(session, { type: 'google.workspace.meet.conference.v2.ended', eventTime: '2026-10-13T10:00:00Z' });
+  assert.equal(session.endedAt, '2026-10-13T10:00:00Z');
 });
 
 test('updates a live session from a participant snapshot', () => {

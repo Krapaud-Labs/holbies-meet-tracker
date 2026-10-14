@@ -394,6 +394,7 @@ function formatAttendanceStatus(status) {
     'on-time': 'à l’heure',
     late: 'en retard',
     absent: 'absent',
+    waiting: 'en attente',
     'identity-to-check': 'inconnu',
   }[status] || 'à vérifier';
 }
