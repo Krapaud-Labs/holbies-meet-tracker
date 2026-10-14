@@ -1,11 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { applyMeetEvent, calculateStatus, createLiveStore, decodeWorkspaceEvent, getParticipantStatuses, isAllowedEmail, renderReportHtml, verifyGoogleAccessToken } from '../src/live.js';
+import { applyMeetEvent, calculateStatus, createLiveStore, decodeWorkspaceEvent, getParticipantStatuses, isAllowedEmail, renderReportHtml, verifyEventsSecret, verifyGoogleAccessToken } from '../src/live.js';
 
 test('only Holberton School emails are allowed', () => {
   assert.equal(isAllowedEmail('mentor@holbertonschool.com'), true);
   assert.equal(isAllowedEmail('mentor@gmail.com'), false);
   assert.equal(isAllowedEmail('mentor@holbertonstudents.com'), false);
+});
+
+test('requires the exact Google events secret', () => {
+  assert.equal(verifyEventsSecret('secret-123', 'secret-123'), true);
+  assert.equal(verifyEventsSecret('secret-123', 'secret-124'), false);
+  assert.equal(verifyEventsSecret(undefined, 'secret-123'), false);
+  assert.equal(verifyEventsSecret('secret-123', undefined), false);
 });
 
 test('calculates late status and minutes', () => {
