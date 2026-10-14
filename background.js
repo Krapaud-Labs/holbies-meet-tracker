@@ -24,6 +24,16 @@ function eventEnd(event) {
   return event.end?.dateTime || event.end?.date || null;
 }
 
+function selectClosestMeetRecord(records, scheduledStart) {
+  const target = Date.parse(scheduledStart || '');
+  return [...records]
+    .filter((record) => record?.name && !Number.isNaN(Date.parse(record.startTime || '')))
+    .sort((left, right) => {
+      if (Number.isNaN(target)) return Date.parse(right.startTime) - Date.parse(left.startTime);
+      return Math.abs(Date.parse(left.startTime) - target) - Math.abs(Date.parse(right.startTime) - target);
+    })[0] || null;
+}
+
 function isTrackableEvent(event, now = Date.now()) {
   const start = Date.parse(eventStart(event) || '');
   const end = Date.parse(eventEnd(event) || '');
@@ -66,7 +76,7 @@ async function fetchMeetSnapshot(meetingCode, scheduledStart, token) {
   recordsUrl.searchParams.set('filter', `space.meeting_code = "${meetingCode}"`);
   recordsUrl.searchParams.set('pageSize', '10');
   const records = (await googleJson(recordsUrl, token)).conferenceRecords || [];
-  const record = [...records].sort((left, right) => Date.parse(right.startTime || '') - Date.parse(left.startTime || ''))[0];
+  const record = selectClosestMeetRecord(records, scheduledStart);
   if (!record?.name) return [];
 
   const recordId = record.name.split('/').pop();
