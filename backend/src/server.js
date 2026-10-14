@@ -1,7 +1,7 @@
 import http from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { createDatabase } from './database.js';
-import { applyMeetEvent, createLiveStore, decodeWorkspaceEvent, renderReportHtml, verifyGoogleAccessToken } from './live.js';
+import { applyMeetEvent, createLiveStore, decodeWorkspaceEvent, renderReportHtml, verifyEventsSecret, verifyGoogleAccessToken } from './live.js';
 
 const port = Number(process.env.PORT || 8080);
 const store = createLiveStore();
@@ -94,7 +94,7 @@ const server = http.createServer(async (request, response) => {
 
   if (request.method === 'POST' && url.pathname === '/api/v1/events/google') {
     try {
-      if (process.env.GOOGLE_EVENTS_SECRET && request.headers['x-google-events-secret'] !== process.env.GOOGLE_EVENTS_SECRET) {
+      if (!verifyEventsSecret(request.headers['x-google-events-secret'], process.env.GOOGLE_EVENTS_SECRET)) {
         json(response, 401, { error: 'google-events-unauthorized' });
         return;
       }
