@@ -8,6 +8,7 @@ const accountEmail = document.querySelector('#account-email');
 const calendarStatus = document.querySelector('#calendar-status');
 const eventList = document.querySelector('#event-list');
 const attendanceStatus = document.querySelector('#attendance-status');
+const analyzeOpenMeetButton = document.querySelector('#analyze-open-meet-button');
 const participantList = document.querySelector('#participant-list');
 const exportButton = document.querySelector('#export-button');
 const exportConsent = document.querySelector('#export-consent');
@@ -237,6 +238,23 @@ function prepareAttendanceView(event) {
   }
 
   setAttendanceState('ready', 'Réunion prête à être analysée.');
+}
+
+async function detectOpenMeet() {
+  if (!currentAccessToken || !chrome.tabs?.query) return;
+  const tabs = await chrome.tabs.query({ lastFocusedWindow: true });
+  const tab = tabs.find((candidate) => candidate.active && extractMeetingCode(candidate?.url))
+    || tabs.find((candidate) => extractMeetingCode(candidate?.url));
+  const meetingCode = extractMeetingCode(tab?.url);
+  analyzeOpenMeetButton.hidden = !meetingCode;
+  if (meetingCode) {
+    analyzeOpenMeetButton.onclick = () => analyzeMeeting({
+      summary: 'Meet ouvert',
+      hangoutLink: `https://meet.google.com/${meetingCode}`,
+      start: { dateTime: new Date().toISOString() },
+      attendees: [],
+    });
+  }
 }
 
 function extractMeetingCode(hangoutLink) {
@@ -496,6 +514,7 @@ function renderConnectedAccount(account) {
   accountAvatar.textContent = (label.trim()[0] || 'G').toUpperCase();
   connectedAccount.hidden = false;
   signInButton.hidden = true;
+  detectOpenMeet().catch(() => {});
 }
 
 function setLoading(isLoading) {
@@ -518,6 +537,7 @@ function resetSession() {
   signOutButton.hidden = true;
   signInButton.hidden = false;
   connectedAccount.hidden = true;
+  analyzeOpenMeetButton.hidden = true;
   accountName.textContent = 'Compte Google connecté';
   accountEmail.textContent = '';
   accountAvatar.textContent = 'G';

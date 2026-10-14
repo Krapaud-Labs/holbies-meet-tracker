@@ -5,7 +5,8 @@
   "description": "Prépare le suivi de présence des réunions Google Meet.",
   "permissions": [
     "identity",
-    "downloads"
+    "downloads",
+    "tabs"
   ],
   "host_permissions": [
     "https://www.googleapis.com/*",

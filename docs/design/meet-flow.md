@@ -4,6 +4,10 @@
 
 Depuis un événement Google Agenda contenant un lien Meet, l'extension recherche le compte rendu de conférence, récupère les participants et agrège leurs sessions pour préparer un statut de présence.
 
+## Meet actuellement ouvert
+
+Lorsque la popup est ouverte depuis un onglet `https://meet.google.com/...`, elle détecte le code de la réunion via la permission Chrome `tabs` et affiche le bouton « Analyser le Meet ouvert ». Cette voie utilise le même flux que l'analyse Agenda, mais sans invités Agenda : les participants Meet sont affichés et le suivi live peut être démarré si Google expose déjà le compte rendu de conférence. Elle sert notamment à analyser une réunion en cours qui n'apparaît pas encore dans la liste des événements chargés.
+
 ## Appels API
 
 1. Le lien est lu en priorité depuis `hangoutLink`, puis depuis `conferenceData.entryPoints`, le lieu ou la description de l'événement. Le code est extrait d'un lien `https://meet.google.com/abc-mnop-xyz`.
