@@ -2,7 +2,7 @@
 
 ## Périmètre livré
 
-Après une autorisation Google réussie, la popup interroge en lecture seule l'endpoint `calendar/v3/calendars/primary/events` pour la semaine civile en cours, du lundi au dimanche. Toutes les pages retournées par Google via `nextPageToken` sont chargées avant le filtrage et le tri, afin de ne pas perdre les événements au-delà de la première page. Un événement terminé depuis plus d'une heure est retiré de la liste.
+Après une autorisation Google réussie, la popup liste d'abord les agendas accessibles via `calendarList`, puis permet de sélectionner ceux à suivre. Elle interroge chaque agenda sélectionné pour la semaine civile en cours, du lundi au dimanche. Toutes les pages retournées par Google via `nextPageToken` sont chargées avant le filtrage et le tri. Un événement terminé depuis plus d'une heure est retiré de la liste.
 
 La réponse affiche uniquement le titre, la date et le lien Google Agenda fourni par l'API. Les valeurs sont rendues avec `textContent` et aucun token ou événement n'est écrit dans un stockage local.
 

@@ -195,6 +195,38 @@ h1 span {
   line-height: 1.25;
 }
 
+.calendar-picker {
+  margin: 8px 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+}
+
+.calendar-picker legend {
+  padding: 0 4px;
+  color: var(--paper);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.calendar-picker-list {
+  display: grid;
+  gap: 5px;
+}
+
+.calendar-choice {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  font-size: 11px;
+}
+
+.calendar-choice span {
+  overflow-wrap: anywhere;
+}
+
 .live-toolbar {
   display: flex;
   align-items: center;

@@ -4,7 +4,9 @@ Extension Chrome Manifest V3 pour préparer le suivi de présence des réunions 
 
 ## Interface
 
-La liste Agenda récupère uniquement la semaine civile en cours, conserve les événements à venir et ceux terminés depuis moins d'une heure. Les événements plus anciens sont retirés automatiquement au rechargement.
+La liste Agenda récupère tous les agendas accessibles du compte, uniquement pour la semaine civile en cours, conserve les événements à venir et ceux terminés depuis moins d'une heure. Les événements plus anciens sont retirés automatiquement au rechargement.
+
+La section « Agendas suivis » permet de cocher ou décocher les agendas à afficher. La sélection est conservée localement et peut être modifiée à tout moment.
 
 La lecture Agenda suit aussi la pagination Google (`nextPageToken`) afin d'afficher tous les événements de la période demandée, et pas seulement la première page.
 
