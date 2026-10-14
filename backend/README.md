@@ -25,7 +25,8 @@ Copiez `production-env.template` vers `.env.production` sur le VPS, remplacez to
 
 ```bash
 docker compose -f docker-compose.production.yml up -d --build
-docker compose -f docker-compose.production.yml exec backend node -e "console.log('schema.sql doit être appliqué par votre procédure PostgreSQL sécurisée')"
 ```
+
+Lors du premier démarrage, PostgreSQL applique automatiquement `schema.sql` via le volume d’initialisation officiel de l’image. Ce mécanisme ne rejoue pas le fichier sur un volume déjà initialisé : utilisez une migration versionnée pour toute évolution ultérieure.
 
 Avant d’ouvrir le service, vérifiez `GET /health`, le certificat TLS, le secret du webhook et la sauvegarde du volume PostgreSQL. Pour revenir à l’image précédente, arrêtez le compose, restaurez la version Git précédente et relancez `up -d --build`. La création de l’abonnement Google Workspace Events/Pub/Sub reste une opération manuelle dans le projet Google autorisé.
