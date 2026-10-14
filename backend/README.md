@@ -21,7 +21,7 @@ Le service écoute sur `http://localhost:8080` par défaut. `schema.sql` décrit
 
 ## Déploiement VPS sans service payant
 
-Copiez `.env.production.example` vers `.env.production` sur le VPS, remplacez toutes les valeurs `CHANGE_ME` et ne versionnez jamais ce fichier. Le compose de production lie le backend à `127.0.0.1`; exposez-le uniquement derrière un reverse-proxy HTTPS. Initialisez la base puis démarrez :
+Copiez `production-env.template` vers `.env.production` sur le VPS, remplacez toutes les valeurs `CHANGE_ME` et ne versionnez jamais ce fichier. Le compose de production lie le backend à `127.0.0.1`; exposez-le uniquement derrière un reverse-proxy HTTPS. Initialisez la base puis démarrez :
 
 ```bash
 docker compose -f docker-compose.production.yml up -d --build
