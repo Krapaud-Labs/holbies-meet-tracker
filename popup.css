@@ -497,7 +497,7 @@ h2 {
 
 .connected-account {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 7px;
   margin: 5px 0;
   padding: 5px;
@@ -519,32 +519,30 @@ h2 {
 
 .account-details {
   display: grid;
+  flex: 1 1 auto;
   min-width: 0;
+  width: 0;
   gap: 2px;
 }
 
 .account-details strong,
 .account-details span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  min-width: 0;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: normal;
 }
 
 .account-details strong {
-  overflow-wrap: anywhere;
   font-size: clamp(9px, 1.9vw, 12px);
   line-height: 1.2;
-  text-overflow: clip;
-  white-space: normal;
 }
 
 .account-details span {
-  overflow-wrap: anywhere;
   color: var(--muted);
   font-size: clamp(8px, 1.7vw, 10px);
   line-height: 1.2;
-  text-overflow: clip;
-  white-space: normal;
 }
 
 .primary-button {
