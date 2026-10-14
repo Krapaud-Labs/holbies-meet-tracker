@@ -422,6 +422,10 @@ h1 span {
   color: var(--rose-soft);
 }
 
+.participant-status[data-status="en attente"] {
+  color: var(--muted);
+}
+
 .event-title {
   color: var(--paper);
   font-size: 10px;

@@ -17,6 +17,7 @@ const attendanceSummary = document.querySelector('#attendance-summary');
 const summaryOnTime = document.querySelector('#summary-on-time');
 const summaryLate = document.querySelector('#summary-late');
 const summaryAbsent = document.querySelector('#summary-absent');
+const summaryWaiting = document.querySelector('#summary-waiting');
 const liveIndicator = document.querySelector('#live-indicator');
 const liveStatus = document.querySelector('#live-status');
 const liveReportLink = document.querySelector('#live-report-link');
@@ -120,7 +121,8 @@ async function startLiveTracking(meetingId, scheduledStart, expectedParticipants
       const liveSession = await response.json();
       const rows = (liveSession.expectedParticipants || []).map((expected) => {
         const actual = (liveSession.participants || []).find((participant) => participant.email === expected.email || participant.name === expected.displayName);
-        return { name: expected.displayName || expected.name, status: formatAttendanceStatus(actual?.status || 'absent'), lateMinutes: actual?.lateMinutes || 0 };
+        const fallbackStatus = liveSession.endedAt ? 'absent' : 'waiting';
+        return { name: expected.displayName || expected.name, status: formatAttendanceStatus(actual?.status || fallbackStatus), lateMinutes: actual?.lateMinutes || 0 };
       });
       if (rows.length) renderAttendanceRows(rows);
     };
@@ -207,11 +209,13 @@ function renderAttendanceRows(rows) {
     if (row.status === 'à l’heure') summary.onTime += 1;
     else if (row.status === 'en retard') summary.late += 1;
     else if (row.status === 'absent') summary.absent += 1;
+    else if (row.status === 'en attente') summary.waiting += 1;
     return summary;
-  }, { onTime: 0, late: 0, absent: 0 });
+  }, { onTime: 0, late: 0, absent: 0, waiting: 0 });
   summaryOnTime.textContent = String(counts.onTime);
   summaryLate.textContent = String(counts.late);
   summaryAbsent.textContent = String(counts.absent);
+  summaryWaiting.textContent = String(counts.waiting);
   attendanceSummary.hidden = rows.length === 0;
   exportButton.disabled = rows.length === 0 || !exportConsent.checked;
 
