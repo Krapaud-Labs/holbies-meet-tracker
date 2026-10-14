@@ -2,7 +2,10 @@
   const LATE_TOLERANCE_MS = 2 * 60 * 1000;
 
   function getParticipantIdentity(participant) {
-    const user = participant?.user || {};
+    // Google Meet returns the union fields at participant.signedinUser,
+    // participant.anonymousUser or participant.phoneUser.
+    // Keep the nested fallback for older fixtures and cached responses.
+    const user = participant?.user || participant || {};
     if (user.signedinUser?.displayName) {
       return { name: user.signedinUser.displayName, identifiable: true };
     }

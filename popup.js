@@ -391,7 +391,7 @@ async function analyzeMeeting(event) {
       return {
         ...name,
         name: result.name,
-        email: normalizeEmail(participant.user?.signedinUser?.email),
+        email: normalizeEmail(participant.signedinUser?.email || participant.user?.signedinUser?.email),
         status: formatAttendanceStatus(result.status),
         arrival: formatExportDate(result.firstJoin),
         departure: formatExportDate(result.lastLeave),

@@ -15,6 +15,20 @@ assert.equal(calculateAttendance({ user: { signedinUser: { displayName: 'Ada' } 
   { startTime: '2026-10-13T09:01:00.000Z' },
 ], eventStart).status, 'on-time');
 
+assert.deepEqual(calculateAttendance({ signedinUser: { displayName: 'Mickael Mur' } }, [
+  { startTime: '2026-10-13T09:01:00.000Z' },
+], eventStart), {
+  name: 'Mickael Mur',
+  identifiable: true,
+  status: 'on-time',
+  firstJoin: Date.parse('2026-10-13T09:01:00.000Z'),
+  lastLeave: null,
+});
+
+assert.equal(calculateAttendance({ anonymousUser: { displayName: 'Visiteur Meet' } }, [
+  { startTime: '2026-10-13T09:01:00.000Z' },
+], eventStart).name, 'Visiteur Meet');
+
 assert.equal(calculateAttendance({ user: { signedinUser: { displayName: 'Grace' } } }, [
   { startTime: '2026-10-13T09:05:00.000Z', endTime: '2026-10-13T09:40:00.000Z' },
 ], eventStart).status, 'late');
