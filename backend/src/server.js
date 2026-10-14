@@ -1,7 +1,7 @@
 import http from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { createDatabase } from './database.js';
-import { applyMeetEvent, createLiveStore, decodeWorkspaceEvent, renderReportHtml, verifyEventsSecret, verifyGoogleAccessToken } from './live.js';
+import { applyMeetEvent, applyParticipantSnapshot, createLiveStore, decodeWorkspaceEvent, renderReportHtml, verifyEventsSecret, verifyGoogleAccessToken } from './live.js';
 
 const port = Number(process.env.PORT || 8080);
 const store = createLiveStore();
@@ -94,6 +94,25 @@ const server = http.createServer(async (request, response) => {
     else if (!session) json(response, 404, { error: 'live-session-not-found' });
     else if (session.mentorEmail !== mentor.email) json(response, 403, { error: 'session-owner-only' });
     else json(response, 200, session);
+    return;
+  }
+
+  if (request.method === 'PUT' && url.pathname.startsWith('/api/v1/live/sessions/') && url.pathname.endsWith('/participants')) {
+    try {
+      const sessionId = url.pathname.split('/').at(-2);
+      const session = store.get(sessionId);
+      const mentor = await authenticate(request);
+      if (!mentor) json(response, 403, { error: 'mentor-domain-not-allowed' });
+      else if (!session) json(response, 404, { error: 'live-session-not-found' });
+      else if (session.mentorEmail !== mentor.email) json(response, 403, { error: 'session-owner-only' });
+      else {
+        const body = await readBody(request);
+        applyParticipantSnapshot(session, body.participants);
+        json(response, 200, session);
+      }
+    } catch (error) {
+      json(response, 400, { error: error.message });
+    }
     return;
   }
 
