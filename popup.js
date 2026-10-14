@@ -35,6 +35,7 @@ const SHEETS_SCOPES = ['https://www.googleapis.com/auth/drive.file', 'https://ww
 // URL du tunnel HTTPS gratuit actuellement actif sur le VPS.
 const LIVE_BACKEND_URL = 'https://walter-bringing-greatest-warming.trycloudflare.com';
 let currentAccessToken = null;
+let calendarLoadSerial = 0;
 let currentAttendanceRows = [];
 let calendarEvents = [];
 let calendarCatalog = [];
@@ -191,6 +192,7 @@ function setCalendarState(state, message) {
   calendarStatus.textContent = message;
   calendarStatus.setAttribute('aria-busy', String(state === 'loading'));
   calendarRefreshButton.disabled = state === 'loading' || !currentAccessToken;
+  calendarRefreshButton.setAttribute('aria-busy', String(state === 'loading'));
 }
 
 async function getSavedCalendarIds() {
@@ -215,7 +217,7 @@ function renderCalendarPicker(calendars, selectedIds) {
     checkbox.addEventListener('change', async () => {
       const ids = [...calendarPickerList.querySelectorAll('input:checked')].map((input) => input.value);
       await saveSelectedCalendarIds(ids);
-      await loadCalendarEvents(currentAccessToken);
+      await refreshCalendar(currentAccessToken);
     });
     const name = document.createElement('span');
     name.textContent = calendar.summaryOverride || calendar.summary || calendar.id;
@@ -227,7 +229,24 @@ function renderCalendarPicker(calendars, selectedIds) {
 
 function setCalendarPickerOpen(isOpen) {
   calendarMenu.hidden = !isOpen || calendarCatalog.length === 0;
-  calendarSettingsButton.setAttribute('aria-expanded', String(isOpen));
+  const open = isOpen && calendarCatalog.length > 0;
+  calendarSettingsButton.setAttribute('aria-expanded', String(open));
+  if (open) requestAnimationFrame(() => calendarPickerList.querySelector('input')?.focus());
+}
+
+async function refreshCalendar(token) {
+  const serial = ++calendarLoadSerial;
+  try {
+    return await loadCalendarEvents(token);
+  } catch (error) {
+    if (serial === calendarLoadSerial) {
+      const message = error?.message?.includes('calendar-list-request-failed-403')
+        ? 'Reconnectez-vous pour autoriser la lecture de vos agendas.'
+        : 'Impossible de charger votre agenda. Réessayez après la connexion.';
+      setCalendarState('error', message);
+    }
+    throw error;
+  }
 }
 
 function formatEventDate(event) {
@@ -748,7 +767,7 @@ function finishGoogleConnection({ token, grantedScopes = [] }, message = 'Compte
     .catch(() => {
       renderConnectedAccount({ email: '', name: 'Compte Google connecté' });
     })
-    .then(() => loadCalendarEvents(token))
+    .then(() => refreshCalendar(token))
     .catch((error) => {
       const message = error?.message?.includes('calendar-list-request-failed-403')
         ? 'Reconnectez-vous pour autoriser la lecture de vos agendas.'
@@ -802,7 +821,12 @@ calendarSettingsButton.addEventListener('click', () => {
 });
 calendarRefreshButton.addEventListener('click', () => {
   if (!currentAccessToken) return;
-  loadCalendarEvents(currentAccessToken).catch(() => {});
+  refreshCalendar(currentAccessToken).catch(() => {});
+});
+document.addEventListener('click', (event) => {
+  if (!calendarMenu.hidden && !calendarMenu.contains(event.target) && !calendarSettingsButton.contains(event.target)) {
+    setCalendarPickerOpen(false);
+  }
 });
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && !calendarMenu.hidden) {

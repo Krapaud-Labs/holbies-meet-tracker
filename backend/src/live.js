@@ -1,13 +1,31 @@
 import { timingSafeEqual } from 'node:crypto';
 
-const ALLOWED_DOMAIN = 'holbertonschool.com';
+const ALLOWED_DOMAIN = (process.env.ALLOWED_EMAIL_DOMAIN || 'holbertonschool.com').toLowerCase();
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
 
 async function verifyGoogleAccessToken(token, fetchImpl = fetch) {
   if (typeof token !== 'string' || token.length < 20) return null;
-  const response = await fetchImpl(`https://oauth2.googleapis.com/tokeninfo?access_token=${encodeURIComponent(token)}`);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
+  let response;
+  try {
+    response = await fetchImpl(`https://oauth2.googleapis.com/tokeninfo?access_token=${encodeURIComponent(token)}`, { signal: controller.signal });
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
   if (!response.ok) return null;
   const profile = await response.json();
-  return isAllowedEmail(profile.email) ? { email: profile.email.toLowerCase(), subject: profile.sub || null } : null;
+  const expiresIn = Number(profile.expires_in);
+  const scopes = typeof profile.scope === 'string' ? profile.scope.split(/\s+/).filter(Boolean) : [];
+  const audienceMatches = !GOOGLE_CLIENT_ID || profile.aud === GOOGLE_CLIENT_ID;
+  const issuerMatches = !profile.iss || profile.iss === 'https://accounts.google.com' || profile.iss === 'accounts.google.com';
+  const scopeMatches = scopes.length === 0 || scopes.includes('https://www.googleapis.com/auth/meetings.space.readonly');
+  const verified = profile.email_verified === undefined || profile.email_verified === 'true' || profile.email_verified === true;
+  return audienceMatches && issuerMatches && verified && (Number.isNaN(expiresIn) || expiresIn > 0) && scopeMatches && isAllowedEmail(profile.email)
+    ? { email: profile.email.toLowerCase(), subject: profile.sub || null }
+    : null;
 }
 
 function isAllowedEmail(email) {
@@ -81,7 +99,7 @@ function applyMeetEvent(session, event) {
 
 function applyParticipantSnapshot(session, participants) {
   if (!session || !Array.isArray(participants)) return session;
-  const merged = new Map();
+  const merged = new Map((session.participants || []).map((participant) => [participant.email?.toLowerCase?.() || participant.name?.toLowerCase?.(), { ...participant }]));
   participants
     .filter((participant) => participant && (participant.name || participant.email))
     .slice(0, 250)
@@ -90,7 +108,7 @@ function applyParticipantSnapshot(session, participants) {
       const name = participant.name || email || 'Participant inconnu';
       const joinedAt = participant.joinedAt || participant.firstJoin || null;
       const leftAt = participant.leftAt || participant.lastLeave || null;
-      const key = email || name;
+      const key = email || name.toLowerCase();
       const current = merged.get(key);
       if (!current) {
         merged.set(key, { name, email, joinedAt, leftAt });
@@ -108,10 +126,11 @@ function applyParticipantSnapshot(session, participants) {
 }
 
 function getParticipantStatuses(session) {
-  const current = new Map((session?.participants || []).map((participant) => [participant.email || participant.name, participant]));
+  const current = new Map((session?.participants || []).map((participant) => [participant.email?.toLowerCase?.() || participant.name?.toLowerCase?.(), participant]));
   const expectedStatuses = (session?.expectedParticipants || []).map((expected) => {
-    const key = expected.email || expected.name || expected.displayName;
-    const participant = current.get(key) || current.get(expected.name || expected.displayName);
+    const key = (expected.email || expected.name || expected.displayName)?.toLowerCase?.();
+    const fallbackKey = (expected.name || expected.displayName)?.toLowerCase?.();
+    const participant = current.get(key) || current.get(fallbackKey);
     return participant || {
       name: expected.displayName || expected.name,
       email: expected.email || null,
@@ -119,8 +138,8 @@ function getParticipantStatuses(session) {
       lateMinutes: 0,
     };
   });
-  const expectedKeys = new Set((session?.expectedParticipants || []).flatMap((expected) => [expected.email, expected.name, expected.displayName].filter(Boolean)));
-  return [...expectedStatuses, ...(session?.participants || []).filter((participant) => !expectedKeys.has(participant.email) && !expectedKeys.has(participant.name))];
+  const expectedKeys = new Set((session?.expectedParticipants || []).flatMap((expected) => [expected.email, expected.name, expected.displayName].filter(Boolean).map((value) => value.toLowerCase())));
+  return [...expectedStatuses, ...(session?.participants || []).filter((participant) => !expectedKeys.has((participant.email || participant.name || '').toLowerCase()))];
 }
 
 function calculateStatus(joinedAt, scheduledStart, toleranceMinutes = 2) {
