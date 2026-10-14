@@ -12,7 +12,7 @@ Le bouton de connexion lance désormais le consentement Google via `chrome.ident
 
 ## Backend Live VPS
 
-Le backend Live est préparé dans `backend/` pour un déploiement sur le VPS. Il limite déjà les mentors au domaine `@holbertonschool.com`, expose un contrat de session Live et inclut une configuration Docker avec PostgreSQL. Les données d'une session active restent temporaires ; la réception des événements Google Workspace et la persistance métier seront branchées avant le déploiement.
+Le backend Live est préparé dans `backend/` pour un déploiement sur le VPS. Il limite les mentors au domaine `@holbertonschool.com`, vérifie le propriétaire des sessions et rapports, expose un contrat de session Live et inclut une configuration Docker avec PostgreSQL. La popup peut actualiser une session toutes les cinq secondes et ouvrir son rapport HTML. Avant publication, configurez une URL VPS HTTPS dans `popup.js`, le secret du webhook Google Workspace Events et le reverse-proxy TLS.
 
 Voir [la documentation backend](backend/README.md) pour lancer les tests et le service localement.
 

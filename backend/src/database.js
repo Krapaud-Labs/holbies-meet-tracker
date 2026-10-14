@@ -13,6 +13,7 @@ function createDatabase(connectionString = process.env.DATABASE_URL) {
          ON CONFLICT (id) DO UPDATE SET ended_at = EXCLUDED.ended_at`,
         [session.id, session.meetingId, session.mentorEmail, session.scheduledStart],
       );
+      await this.saveExpectedParticipants(session.id, session.expectedParticipants || []);
     },
     async saveExpectedParticipants(sessionId, participants) {
       for (const participant of participants) {

@@ -16,12 +16,57 @@ const attendanceSummary = document.querySelector('#attendance-summary');
 const summaryOnTime = document.querySelector('#summary-on-time');
 const summaryLate = document.querySelector('#summary-late');
 const summaryAbsent = document.querySelector('#summary-absent');
+const liveIndicator = document.querySelector('#live-indicator');
+const liveStatus = document.querySelector('#live-status');
+const liveReportLink = document.querySelector('#live-report-link');
 
 const CALENDAR_EVENTS_URL = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
 const MEET_RECORDS_URL = 'https://meet.googleapis.com/v2/conferenceRecords';
 const GOOGLE_USERINFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo';
+// Set this to the HTTPS URL of the VPS backend before publishing the extension.
+const LIVE_BACKEND_URL = 'http://localhost:8080';
 let currentAccessToken = null;
 let currentAttendanceRows = [];
+let liveSessionId = null;
+let livePollTimer = null;
+
+function stopLiveTracking() {
+  if (livePollTimer) clearInterval(livePollTimer);
+  livePollTimer = null;
+  liveSessionId = null;
+  liveIndicator.hidden = true;
+  liveReportLink.hidden = true;
+}
+
+async function startLiveTracking(meetingId, scheduledStart, expectedParticipants) {
+  if (!LIVE_BACKEND_URL || !currentAccessToken) return;
+  try {
+    const created = await fetchWithRetry(`${LIVE_BACKEND_URL}/api/v1/live/sessions`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${currentAccessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ meetingId, scheduledStart, expectedParticipants }),
+    });
+    const session = await created.json();
+    liveSessionId = session.id;
+    liveIndicator.hidden = false;
+    liveStatus.textContent = 'Présences actualisées toutes les 5 secondes.';
+    liveReportLink.href = `${LIVE_BACKEND_URL}/reports/${encodeURIComponent(liveSessionId)}`;
+    liveReportLink.hidden = false;
+    const refresh = async () => {
+      const response = await fetchWithRetry(`${LIVE_BACKEND_URL}/api/v1/live/sessions/${encodeURIComponent(liveSessionId)}`, { headers: { Authorization: `Bearer ${currentAccessToken}` } });
+      const liveSession = await response.json();
+      const rows = (liveSession.expectedParticipants || []).map((expected) => {
+        const actual = (liveSession.participants || []).find((participant) => participant.email === expected.email || participant.name === expected.displayName);
+        return { name: expected.displayName || expected.name, status: formatAttendanceStatus(actual?.status || 'absent'), lateMinutes: actual?.lateMinutes || 0 };
+      });
+      if (rows.length) renderAttendanceRows(rows);
+    };
+    await refresh();
+    livePollTimer = setInterval(() => refresh().catch(() => {}), 5000);
+  } catch {
+    liveStatus.textContent = 'Backend live indisponible. Le relevé Meet reste disponible localement.';
+  }
+}
 
 function normalizeEmail(email) {
   return typeof email === 'string' ? email.trim().toLowerCase() : null;
@@ -311,6 +356,7 @@ async function analyzeMeeting(event) {
     }));
 
     renderAttendanceRows(rows);
+    await startLiveTracking(record.name, event.start?.dateTime || event.start?.date, invitedRows.map((row) => ({ email: row.email, displayName: row.name })));
     setAttendanceState(rows.length ? 'success' : 'empty', rows.length
       ? `${rows.length} participant${rows.length > 1 ? 's' : ''} trouvé${rows.length > 1 ? 's' : ''}.`
       : 'Aucun participant dans ce compte rendu.');
@@ -449,6 +495,7 @@ function setLoading(isLoading) {
 }
 
 function resetSession() {
+  stopLiveTracking();
   currentAccessToken = null;
   currentAttendanceRows = [];
   participantList.replaceChildren();

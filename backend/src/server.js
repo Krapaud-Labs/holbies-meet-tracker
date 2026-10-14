@@ -7,6 +7,14 @@ const port = Number(process.env.PORT || 8080);
 const store = createLiveStore();
 const database = createDatabase();
 
+function bearerToken(request) {
+  return request.headers.authorization?.match(/^Bearer\s+(.+)$/i)?.[1] || null;
+}
+
+async function authenticate(request) {
+  return verifyGoogleAccessToken(bearerToken(request));
+}
+
 function json(response, status, body) {
   response.writeHead(status, { 'content-type': 'application/json; charset=utf-8' });
   response.end(JSON.stringify(body));
@@ -34,8 +42,7 @@ const server = http.createServer(async (request, response) => {
   if (request.method === 'POST' && url.pathname === '/api/v1/live/sessions') {
     try {
       const body = await readBody(request);
-      const token = request.headers.authorization?.match(/^Bearer\s+(.+)$/i)?.[1];
-      const mentor = await verifyGoogleAccessToken(token);
+      const mentor = await authenticate(request);
       if (!mentor) {
         json(response, 403, { error: 'mentor-domain-not-allowed' });
         return;
@@ -64,14 +71,20 @@ const server = http.createServer(async (request, response) => {
 
   if (request.method === 'GET' && url.pathname.startsWith('/api/v1/live/sessions/')) {
     const session = store.get(url.pathname.split('/').pop());
-    if (!session) json(response, 404, { error: 'live-session-not-found' });
+    const mentor = await authenticate(request);
+    if (!mentor) json(response, 403, { error: 'mentor-domain-not-allowed' });
+    else if (!session) json(response, 404, { error: 'live-session-not-found' });
+    else if (session.mentorEmail !== mentor.email) json(response, 403, { error: 'session-owner-only' });
     else json(response, 200, session);
     return;
   }
 
   if (request.method === 'GET' && url.pathname.startsWith('/reports/')) {
     const session = store.get(url.pathname.split('/').pop());
-    if (!session) json(response, 404, { error: 'report-not-found' });
+    const mentor = await authenticate(request);
+    if (!mentor) json(response, 403, { error: 'mentor-domain-not-allowed' });
+    else if (!session) json(response, 404, { error: 'report-not-found' });
+    else if (session.mentorEmail !== mentor.email) json(response, 403, { error: 'session-owner-only' });
     else {
       response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
       response.end(renderReportHtml(session));
@@ -81,6 +94,10 @@ const server = http.createServer(async (request, response) => {
 
   if (request.method === 'POST' && url.pathname === '/api/v1/events/google') {
     try {
+      if (process.env.GOOGLE_EVENTS_SECRET && request.headers['x-google-events-secret'] !== process.env.GOOGLE_EVENTS_SECRET) {
+        json(response, 401, { error: 'google-events-unauthorized' });
+        return;
+      }
       const event = decodeWorkspaceEvent(await readBody(request));
       const meetingId = event?.conferenceRecord?.name || event?.participantSession?.conferenceRecord;
       const session = meetingId ? store.findByMeeting(meetingId) : null;

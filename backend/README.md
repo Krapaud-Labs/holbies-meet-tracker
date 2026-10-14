@@ -17,4 +17,4 @@ npm install
 npm start
 ```
 
-Le service écoute sur `http://localhost:8080` par défaut. `schema.sql` décrit la persistance des sessions, invités et événements. L’API actuelle fournit la base du contrat Live ; l’authentification Google vérifiée côté serveur, la réception Google Workspace Events et le rendu Live dans la popup restent les prochaines étapes avant le déploiement VPS.
+Le service écoute sur `http://localhost:8080` par défaut. `schema.sql` décrit la persistance des sessions, invités et événements. Les lectures de session et de rapport vérifient le compte Google du mentor et le propriétaire de la session. La popup peut interroger le backend toutes les cinq secondes via `LIVE_BACKEND_URL` dans `popup.js`; remplacez cette valeur par l’URL HTTPS du VPS avant publication. Le secret `GOOGLE_EVENTS_SECRET` doit protéger le webhook Google Workspace Events en production.

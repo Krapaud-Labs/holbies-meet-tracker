@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { applyMeetEvent, calculateStatus, createLiveStore, decodeWorkspaceEvent, isAllowedEmail, renderReportHtml, verifyGoogleAccessToken } from '../src/live.js';
+import { applyMeetEvent, calculateStatus, createLiveStore, decodeWorkspaceEvent, getParticipantStatuses, isAllowedEmail, renderReportHtml, verifyGoogleAccessToken } from '../src/live.js';
 
 test('only Holberton School emails are allowed', () => {
   assert.equal(isAllowedEmail('mentor@holbertonschool.com'), true);
@@ -38,4 +38,9 @@ test('decodes and applies a Google Meet participant join event', () => {
   applyMeetEvent(session, decoded);
   assert.equal(session.participants[0].status, 'late');
   assert.equal(session.participants[0].lateMinutes, 14);
+});
+
+test('marks expected participants who have not joined as absent', () => {
+  const statuses = getParticipantStatuses({ expectedParticipants: [{ email: 'absent@holbertonschool.com', displayName: 'Absent Person' }], participants: [] });
+  assert.deepEqual(statuses, [{ name: 'Absent Person', email: 'absent@holbertonschool.com', status: 'absent', lateMinutes: 0 }]);
 });

@@ -195,6 +195,40 @@ h1 span {
   line-height: 1.25;
 }
 
+.live-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 18px;
+  margin: 5px 0;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.live-indicator {
+  padding: 2px 5px;
+  border-radius: 999px;
+  background: var(--cherry);
+  color: var(--paper);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: .1em;
+  animation: live-pulse 1.4s ease-in-out infinite;
+}
+
+.live-toolbar a {
+  margin-left: auto;
+  color: var(--rose-soft);
+}
+
+@keyframes live-pulse {
+  50% { opacity: .45; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-indicator { animation: none; }
+}
+
 .calendar-status[data-state="loading"] {
   color: var(--cherry);
 }
