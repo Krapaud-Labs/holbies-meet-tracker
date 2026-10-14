@@ -4,6 +4,8 @@ import { createDatabase } from './database.js';
 import { applyMeetEvent, applyParticipantSnapshot, createLiveStore, decodeWorkspaceEvent, renderReportHtml, verifyEventsSecret, verifyGoogleAccessToken } from './live.js';
 
 const port = Number(process.env.PORT || 8080);
+const maxBodyBytes = Number(process.env.MAX_BODY_BYTES || 256 * 1024);
+const allowedExtensionOrigin = process.env.ALLOWED_EXTENSION_ORIGIN || 'chrome-extension://jilidimjjdkgdggfkackomkmjjldlpaf';
 const store = createLiveStore();
 const database = createDatabase();
 
@@ -17,7 +19,7 @@ async function authenticate(request) {
 
 function setCorsHeaders(request, response) {
   const origin = request.headers.origin;
-  if (typeof origin === 'string' && origin.startsWith('chrome-extension://')) {
+  if (origin === allowedExtensionOrigin) {
     response.setHeader('access-control-allow-origin', origin);
     response.setHeader('vary', 'Origin');
   }
@@ -34,7 +36,18 @@ function json(response, status, body) {
 function readBody(request) {
   return new Promise((resolve, reject) => {
     let raw = '';
-    request.on('data', (chunk) => { raw += chunk; });
+    let size = 0;
+    request.on('data', (chunk) => {
+      size += chunk.length;
+      if (size > maxBodyBytes) {
+        const error = new Error('payload-too-large');
+        error.statusCode = 413;
+        reject(error);
+        request.destroy();
+        return;
+      }
+      raw += chunk;
+    });
     request.on('end', () => {
       try { resolve(raw ? JSON.parse(raw) : {}); } catch { reject(new Error('invalid-json')); }
     });
@@ -65,8 +78,12 @@ const server = http.createServer(async (request, response) => {
         json(response, 403, { error: 'mentor-domain-not-allowed' });
         return;
       }
-      if (!body.meetingId || !body.scheduledStart) {
+      if (typeof body.meetingId !== 'string' || body.meetingId.length > 512 || Number.isNaN(Date.parse(body.scheduledStart)) ) {
         json(response, 400, { error: 'meetingId-and-scheduledStart-required' });
+        return;
+      }
+      if (body.expectedParticipants !== undefined && (!Array.isArray(body.expectedParticipants) || body.expectedParticipants.length > 250)) {
+        json(response, 400, { error: 'invalid-expected-participants' });
         return;
       }
       const session = {
@@ -74,7 +91,7 @@ const server = http.createServer(async (request, response) => {
         meetingId: body.meetingId,
         mentorEmail: mentor.email,
         scheduledStart: body.scheduledStart,
-        expectedParticipants: Array.isArray(body.expectedParticipants) ? body.expectedParticipants : [],
+        expectedParticipants: (body.expectedParticipants || []).filter((participant) => participant && (participant.email || participant.name || participant.displayName)),
         participants: [],
         createdAt: new Date().toISOString(),
       };
@@ -82,7 +99,7 @@ const server = http.createServer(async (request, response) => {
       if (database) await database.saveSession(session);
       json(response, 201, session);
     } catch (error) {
-      json(response, 400, { error: error.message });
+      json(response, error.statusCode || 400, { error: error.message });
     }
     return;
   }
@@ -111,7 +128,7 @@ const server = http.createServer(async (request, response) => {
         json(response, 200, session);
       }
     } catch (error) {
-      json(response, 400, { error: error.message });
+      json(response, error.statusCode || 400, { error: error.message });
     }
     return;
   }
@@ -174,4 +191,16 @@ const server = http.createServer(async (request, response) => {
   json(response, 404, { error: 'not-found' });
 });
 
-server.listen(port, () => console.log(`Live backend listening on ${port}`));
+async function start() {
+  if (database) {
+    try {
+      for (const session of await database.loadSessions()) store.upsert(session);
+      console.log(`Restored ${store.size()} live session(s) from PostgreSQL`);
+    } catch (error) {
+      console.error(`PostgreSQL restore failed: ${error.message}`);
+    }
+  }
+  server.listen(port, () => console.log(`Live backend listening on ${port}`));
+}
+
+start();

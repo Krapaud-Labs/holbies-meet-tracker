@@ -17,7 +17,7 @@ npm install
 npm start
 ```
 
-Le service écoute sur `http://localhost:8080` par défaut. `schema.sql` décrit la persistance des sessions, invités et événements. Les lectures de session et de rapport vérifient le compte Google du mentor et le propriétaire de la session. La popup peut interroger le backend toutes les cinq secondes via `LIVE_BACKEND_URL` dans `popup.js`; remplacez cette valeur par l’URL HTTPS du VPS avant publication. `GOOGLE_EVENTS_SECRET` est obligatoire : le webhook Google Workspace Events répond `401` si le secret est absent, vide ou incorrect. Le secret doit rester uniquement dans l’environnement du VPS.
+Le service écoute sur `http://localhost:8080` par défaut. `schema.sql` décrit la persistance des sessions, invités et événements. Les lectures de session et de rapport vérifient le compte Google du mentor et le propriétaire de la session. La popup peut interroger le backend toutes les cinq secondes via `LIVE_BACKEND_URL` dans `popup.js`; remplacez cette valeur par l’URL HTTPS du VPS avant publication. `GOOGLE_EVENTS_SECRET` est obligatoire : le webhook Google Workspace Events répond `401` si le secret est absent, vide ou incorrect. `ALLOWED_EXTENSION_ORIGIN` doit contenir l’origine exacte `chrome-extension://jilidimjjdkgdggfkackomkmjjldlpaf` (ou l’ID de publication réel), et `MAX_BODY_BYTES` permet de réduire la limite de payload, fixée à 256 KiB par défaut. Le secret doit rester uniquement dans l’environnement du VPS.
 
 ## Déploiement VPS sans service payant
 
