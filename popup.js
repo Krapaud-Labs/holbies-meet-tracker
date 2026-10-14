@@ -80,6 +80,21 @@ function describeLiveBackendError(error) {
   return 'Backend live inaccessible. Vérifiez le tunnel HTTPS et votre connexion.';
 }
 
+async function fetchMeetLiveSnapshot(recordName) {
+  const recordId = recordName.split('/').pop();
+  const participantsUrl = `${MEET_RECORDS_URL}/${recordId}/participants?pageSize=250`;
+  const participants = await fetchAllMeetPages(participantsUrl, 'participants', currentAccessToken);
+  return participants.map((participant) => {
+    const identity = MeetAttendance.getParticipantIdentity(participant);
+    return {
+      name: identity.name,
+      email: normalizeEmail(participant.signedinUser?.email || participant.user?.signedinUser?.email),
+      joinedAt: participant.earliestStartTime || null,
+      leftAt: participant.latestEndTime || null,
+    };
+  }).filter((participant) => participant.name && participant.name !== 'Participant inconnu');
+}
+
 async function startLiveTracking(meetingId, scheduledStart, expectedParticipants) {
   if (!LIVE_BACKEND_URL || !currentAccessToken) return;
   try {
@@ -95,6 +110,12 @@ async function startLiveTracking(meetingId, scheduledStart, expectedParticipants
     liveReportLink.href = `${LIVE_BACKEND_URL}/reports/${encodeURIComponent(liveSessionId)}`;
     liveReportLink.hidden = false;
     const refresh = async () => {
+      const snapshot = await fetchMeetLiveSnapshot(meetingId);
+      await fetchWithRetry(`${LIVE_BACKEND_URL}/api/v1/live/sessions/${encodeURIComponent(liveSessionId)}/participants`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${currentAccessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ participants: snapshot }),
+      });
       const response = await fetchWithRetry(`${LIVE_BACKEND_URL}/api/v1/live/sessions/${encodeURIComponent(liveSessionId)}`, { headers: { Authorization: `Bearer ${currentAccessToken}` } });
       const liveSession = await response.json();
       const rows = (liveSession.expectedParticipants || []).map((expected) => {
