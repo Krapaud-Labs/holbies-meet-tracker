@@ -2,7 +2,7 @@
 
 Backend local destiné au suivi Live et aux rapports HTML des réunions Google Meet. Il refuse les mentors dont l’adresse ne se termine pas par `@holbertonschool.com`.
 
-La page HTML des rapports sera la sortie principale : synthèse de la réunion, participants attendus, arrivées, retards, absents et historique. Google Sheets restera un export optionnel, pas la base de consultation.
+La page HTML des rapports sera la sortie principale : synthèse de la réunion, participants attendus, arrivées, retards, absents et historique. Google Sheets restera un export optionnel, pas la base de consultation. Les rapports sont servis sans cache avec une CSP restrictive adaptée à leur HTML statique.
 
 ## Lancer les tests
 
