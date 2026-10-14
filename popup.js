@@ -23,8 +23,8 @@ const liveReportLink = document.querySelector('#live-report-link');
 const CALENDAR_EVENTS_URL = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
 const MEET_RECORDS_URL = 'https://meet.googleapis.com/v2/conferenceRecords';
 const GOOGLE_USERINFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo';
-// Set this to the HTTPS URL of the VPS backend before publishing the extension.
-const LIVE_BACKEND_URL = 'http://localhost:8080';
+// URL HTTPS du tunnel gratuit actif sur le VPS. Elle change si le Quick Tunnel est recréé.
+const LIVE_BACKEND_URL = 'https://beverage-aerospace-conventions-stewart.trycloudflare.com';
 let currentAccessToken = null;
 let currentAttendanceRows = [];
 let liveSessionId = null;

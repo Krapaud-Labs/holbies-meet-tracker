@@ -11,7 +11,8 @@
     "https://www.googleapis.com/*",
     "https://oauth2.googleapis.com/*",
     "https://meet.googleapis.com/*",
-    "https://sheets.googleapis.com/*"
+    "https://sheets.googleapis.com/*",
+    "https://beverage-aerospace-conventions-stewart.trycloudflare.com/*"
   ],
   "oauth2": {
     "client_id": "611287747685-ta67qr1faesv1mjk0q5k53qtr7ai3di4.apps.googleusercontent.com",
