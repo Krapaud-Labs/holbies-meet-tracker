@@ -49,6 +49,17 @@ test('decodes and applies a Google Meet participant join event', () => {
   assert.equal(session.participants[0].lateMinutes, 14);
 });
 
+test('keeps an on-time participant on-time after a disconnect and reconnect', () => {
+  const session = { scheduledStart: '2026-10-13T09:00:00Z', participants: [] };
+  applyMeetEvent(session, { type: 'google.workspace.meet.participant.v2.joined', participantSession: { displayName: 'Thomas Durand', startTime: '2026-10-13T09:01:00Z' } });
+  applyMeetEvent(session, { type: 'google.workspace.meet.participant.v2.left', eventTime: '2026-10-13T09:20:00Z', participantSession: { displayName: 'Thomas Durand', endTime: '2026-10-13T09:20:00Z' } });
+  applyMeetEvent(session, { type: 'google.workspace.meet.participant.v2.joined', participantSession: { displayName: 'Thomas Durand', startTime: '2026-10-13T09:25:00Z' } });
+  assert.equal(session.participants.length, 1);
+  assert.equal(session.participants[0].status, 'on-time');
+  assert.equal(session.participants[0].lateMinutes, 0);
+  assert.equal(session.participants[0].joinedAt, '2026-10-13T09:01:00Z');
+});
+
 test('marks expected participants who have not joined as absent', () => {
   const statuses = getParticipantStatuses({ expectedParticipants: [{ email: 'absent@holbertonschool.com', displayName: 'Absent Person' }], participants: [] });
   assert.deepEqual(statuses, [{ name: 'Absent Person', email: 'absent@holbertonschool.com', status: 'absent', lateMinutes: 0 }]);
@@ -65,4 +76,17 @@ test('updates a live session from a participant snapshot', () => {
     status: 'late',
     lateMinutes: 5,
   });
+});
+
+test('merges reconnect snapshots without creating a late or duplicate participant', () => {
+  const session = { scheduledStart: '2026-10-13T09:00:00Z', participants: [] };
+  applyParticipantSnapshot(session, [
+    { email: 'ada@holbertonschool.com', name: 'Ada Lovelace', joinedAt: '2026-10-13T09:01:00Z', leftAt: '2026-10-13T09:20:00Z' },
+    { email: 'ADA@HOLBERTONSCHOOL.COM', name: 'Ada Lovelace', joinedAt: '2026-10-13T09:25:00Z', leftAt: '2026-10-13T09:40:00Z' },
+  ]);
+  assert.equal(session.participants.length, 1);
+  assert.equal(session.participants[0].status, 'on-time');
+  assert.equal(session.participants[0].lateMinutes, 0);
+  assert.equal(session.participants[0].joinedAt, '2026-10-13T09:01:00Z');
+  assert.equal(session.participants[0].leftAt, '2026-10-13T09:40:00Z');
 });

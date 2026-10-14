@@ -54,39 +54,51 @@ function applyMeetEvent(session, event) {
   if (!session || !event?.participantSession) return session;
   const participant = event.participantSession;
   const name = participant.displayName || participant.name || 'Participant inconnu';
-  const existing = session.participants.find((item) => item.name === name);
+  const email = participant.email?.toLowerCase?.() || null;
+  const existing = session.participants.find((item) => (email && item.email?.toLowerCase?.() === email) || item.name === name);
   const joinedAt = participant.startTime || event.eventTime || new Date().toISOString();
   if (event.type.endsWith('.left')) {
-    if (existing) existing.leftAt = participant.endTime || event.eventTime || new Date().toISOString();
+    if (existing) {
+      const leftAt = participant.endTime || event.eventTime || new Date().toISOString();
+      if (!existing.leftAt || Date.parse(leftAt) > Date.parse(existing.leftAt)) existing.leftAt = leftAt;
+    }
     return session;
   }
-  const next = existing || { name, status: 'unknown', lateMinutes: 0 };
-  next.joinedAt = joinedAt;
-  const joined = Date.parse(joinedAt);
-  const start = Date.parse(session.scheduledStart);
-  next.lateMinutes = Number.isNaN(joined) || Number.isNaN(start) ? 0 : Math.max(0, Math.ceil((joined - start) / 60000));
-  next.status = next.lateMinutes > 2 ? 'late' : 'on-time';
+  const next = existing || { name, email, status: 'unknown', lateMinutes: 0 };
+  if (!next.joinedAt || Date.parse(joinedAt) < Date.parse(next.joinedAt)) next.joinedAt = joinedAt;
+  if (email) next.email = email;
+  const status = calculateStatus(next.joinedAt, session.scheduledStart);
+  next.lateMinutes = status.lateMinutes;
+  next.status = status.status;
   if (!existing) session.participants.push(next);
   return session;
 }
 
 function applyParticipantSnapshot(session, participants) {
   if (!session || !Array.isArray(participants)) return session;
-  session.participants = participants
+  const merged = new Map();
+  participants
     .filter((participant) => participant && (participant.name || participant.email))
     .slice(0, 250)
-    .map((participant) => {
+    .forEach((participant) => {
+      const email = participant.email?.toLowerCase?.() || null;
+      const name = participant.name || email || 'Participant inconnu';
       const joinedAt = participant.joinedAt || participant.firstJoin || null;
-      const status = calculateStatus(joinedAt, session.scheduledStart);
-      return {
-        name: participant.name || participant.email || 'Participant inconnu',
-        email: participant.email || null,
-        joinedAt,
-        leftAt: participant.leftAt || participant.lastLeave || null,
-        status: status.status,
-        lateMinutes: status.lateMinutes,
-      };
+      const leftAt = participant.leftAt || participant.lastLeave || null;
+      const key = email || name;
+      const current = merged.get(key);
+      if (!current) {
+        merged.set(key, { name, email, joinedAt, leftAt });
+        return;
+      }
+      if (joinedAt && (!current.joinedAt || Date.parse(joinedAt) < Date.parse(current.joinedAt))) current.joinedAt = joinedAt;
+      if (leftAt && (!current.leftAt || Date.parse(leftAt) > Date.parse(current.leftAt))) current.leftAt = leftAt;
+      if (!current.email && email) current.email = email;
     });
+  session.participants = [...merged.values()].map((participant) => {
+    const status = calculateStatus(participant.joinedAt, session.scheduledStart);
+    return { ...participant, status: status.status, lateMinutes: status.lateMinutes };
+  });
   return session;
 }
 
