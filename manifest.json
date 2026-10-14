@@ -6,7 +6,9 @@
   "permissions": [
     "identity",
     "downloads",
-    "tabs"
+    "tabs",
+    "alarms",
+    "storage"
   ],
   "host_permissions": [
     "https://www.googleapis.com/*",
@@ -26,5 +28,9 @@
   "action": {
     "default_title": "Holbies Meet Tracker",
     "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
   }
 }

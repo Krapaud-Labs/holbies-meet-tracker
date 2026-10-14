@@ -2,7 +2,7 @@
 
 ## Objectif MVP
 
-Depuis un événement Google Agenda contenant un lien Meet, l'extension recherche le compte rendu de conférence, récupère les participants et agrège leurs sessions pour préparer un statut de présence.
+Depuis un événement Google Agenda contenant un lien Meet, l'extension recherche le compte rendu de conférence, récupère les participants et agrège leurs sessions pour préparer un statut de présence. Un service worker MV3 relance ce cycle toutes les minutes dans la fenêtre de l'événement, crée la session backend et envoie les snapshots même si la popup est fermée et si le mentor ne rejoint pas le Meet.
 
 ## Meet actuellement ouvert
 
