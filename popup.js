@@ -6,6 +6,8 @@ const accountAvatar = document.querySelector('#account-avatar');
 const accountName = document.querySelector('#account-name');
 const accountEmail = document.querySelector('#account-email');
 const calendarStatus = document.querySelector('#calendar-status');
+const calendarPicker = document.querySelector('#calendar-picker');
+const calendarPickerList = document.querySelector('#calendar-picker-list');
 const eventList = document.querySelector('#event-list');
 const attendanceStatus = document.querySelector('#attendance-status');
 const analyzeOpenMeetButton = document.querySelector('#analyze-open-meet-button');
@@ -23,6 +25,7 @@ const liveStatus = document.querySelector('#live-status');
 const liveReportLink = document.querySelector('#live-report-link');
 
 const CALENDAR_EVENTS_URL = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
+const CALENDAR_LIST_URL = 'https://www.googleapis.com/calendar/v3/users/me/calendarList';
 const MEET_RECORDS_URL = 'https://meet.googleapis.com/v2/conferenceRecords';
 const GOOGLE_USERINFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo';
 const SHEETS_SCOPES = ['https://www.googleapis.com/auth/drive.file', 'https://www.googleapis.com/auth/spreadsheets'];
@@ -31,6 +34,7 @@ const LIVE_BACKEND_URL = 'https://walter-bringing-greatest-warming.trycloudflare
 let currentAccessToken = null;
 let currentAttendanceRows = [];
 let calendarEvents = [];
+let calendarCatalog = [];
 let liveSessionId = null;
 let livePollTimer = null;
 const AUTH_TIMEOUT_MS = 15000;
@@ -181,6 +185,38 @@ function setCalendarState(state, message) {
   calendarStatus.dataset.state = state;
   calendarStatus.textContent = message;
   calendarStatus.setAttribute('aria-busy', String(state === 'loading'));
+}
+
+async function getSavedCalendarIds() {
+  const stored = await chrome.storage.local.get('holbiesSelectedCalendarIds');
+  return Array.isArray(stored.holbiesSelectedCalendarIds) ? stored.holbiesSelectedCalendarIds : null;
+}
+
+async function saveSelectedCalendarIds(ids) {
+  await chrome.storage.local.set({ holbiesSelectedCalendarIds: ids });
+}
+
+function renderCalendarPicker(calendars, selectedIds) {
+  calendarCatalog = calendars;
+  calendarPickerList.replaceChildren();
+  calendars.forEach((calendar) => {
+    const label = document.createElement('label');
+    label.className = 'calendar-choice';
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.value = calendar.id;
+    checkbox.checked = selectedIds.includes(calendar.id);
+    checkbox.addEventListener('change', async () => {
+      const ids = [...calendarPickerList.querySelectorAll('input:checked')].map((input) => input.value);
+      await saveSelectedCalendarIds(ids);
+      await loadCalendarEvents(currentAccessToken);
+    });
+    const name = document.createElement('span');
+    name.textContent = calendar.summaryOverride || calendar.summary || calendar.id;
+    label.append(checkbox, name);
+    calendarPickerList.append(label);
+  });
+  calendarPicker.hidden = calendars.length === 0;
 }
 
 function formatEventDate(event) {
@@ -554,27 +590,52 @@ async function loadCalendarEvents(token) {
   const timeout = setTimeout(() => controller.abort(), 8000);
 
   const calendarItems = [];
-  let pageToken = null;
   try {
-    do {
-      const pageParams = new URLSearchParams(params);
-      if (pageToken) pageParams.set('pageToken', pageToken);
-      const response = await fetchWithRetry(`${CALENDAR_EVENTS_URL}?${pageParams}`, {
+    const calendarListResponse = await fetchWithRetry(CALENDAR_LIST_URL, {
         headers: { Authorization: `Bearer ${token}` },
         signal: controller.signal,
-      }, 3);
+    }, 3);
 
-      if (!response.ok) {
-        if (response.status === 401) {
-          await chrome.identity.removeCachedAuthToken({ token });
-        }
-        throw new Error(`calendar-request-failed-${response.status}`);
+    if (!calendarListResponse.ok) {
+      if (calendarListResponse.status === 401) {
+        await chrome.identity.removeCachedAuthToken({ token });
       }
+      throw new Error(`calendar-list-request-failed-${calendarListResponse.status}`);
+    }
 
-      const data = await response.json();
-      calendarItems.push(...(Array.isArray(data.items) ? data.items : []));
-      pageToken = data.nextPageToken || null;
-    } while (pageToken);
+    const calendarList = await calendarListResponse.json();
+    const calendars = Array.isArray(calendarList.items) && calendarList.items.length
+      ? calendarList.items
+      : [{ id: 'primary' }];
+    const savedIds = await getSavedCalendarIds();
+    const defaultIds = calendars.filter((calendar) => calendar.selected !== false).map((calendar) => calendar.id);
+    const selectedIds = (savedIds || defaultIds).filter((id) => calendars.some((calendar) => calendar.id === id));
+    renderCalendarPicker(calendars, selectedIds);
+
+    for (const calendar of calendars) {
+      if (!selectedIds.includes(calendar.id)) continue;
+      let pageToken = null;
+      do {
+        const pageParams = new URLSearchParams(params);
+        if (pageToken) pageParams.set('pageToken', pageToken);
+        const calendarId = encodeURIComponent(calendar.id || 'primary');
+        const response = await fetchWithRetry(`https://www.googleapis.com/calendar/v3/calendars/${calendarId}/events?${pageParams}`, {
+          headers: { Authorization: `Bearer ${token}` },
+          signal: controller.signal,
+        }, 3);
+
+        if (!response.ok) {
+          if (response.status === 401) {
+            await chrome.identity.removeCachedAuthToken({ token });
+          }
+          throw new Error(`calendar-request-failed-${response.status}`);
+        }
+
+        const data = await response.json();
+        calendarItems.push(...(Array.isArray(data.items) ? data.items : []));
+        pageToken = data.nextPageToken || null;
+      } while (pageToken);
+    }
   } finally {
     clearTimeout(timeout);
   }
