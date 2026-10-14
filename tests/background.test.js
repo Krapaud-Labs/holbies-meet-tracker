@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { expectedParticipants, extractMeetingCode, getMeetingCode, isTrackableEvent } from '../background.js';
+import { expectedParticipants, extractMeetingCode, getMeetingCode, isTrackableEvent, shouldCloseEvent } from '../background.js';
 
 test('extracts a Meet code from calendar conferencing data', () => {
   assert.equal(extractMeetingCode('https://meet.google.com/abc-mnop-xyz'), 'abc-mnop-xyz');
@@ -16,4 +16,10 @@ test('tracks only events in the active monitoring window', () => {
 
 test('keeps only identifiable Agenda guests as expected participants', () => {
   assert.deepEqual(expectedParticipants({ attendees: [{ email: 'Alice@holbertonschool.com', displayName: 'Alice' }, { responseStatus: 'accepted' }] }), [{ email: 'alice@holbertonschool.com', displayName: 'Alice' }]);
+});
+
+test('closes a session only after the scheduled end grace period', () => {
+  const event = { end: { dateTime: '2026-10-14T11:00:00Z' } };
+  assert.equal(shouldCloseEvent(event, Date.parse('2026-10-14T11:09:59Z')), false);
+  assert.equal(shouldCloseEvent(event, Date.parse('2026-10-14T11:10:00Z')), true);
 });

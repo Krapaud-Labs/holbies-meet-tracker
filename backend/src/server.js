@@ -116,6 +116,21 @@ const server = http.createServer(async (request, response) => {
     return;
   }
 
+  if (request.method === 'POST' && url.pathname.startsWith('/api/v1/live/sessions/') && url.pathname.endsWith('/end')) {
+    const sessionId = url.pathname.split('/').at(-2);
+    const session = store.get(sessionId);
+    const mentor = await authenticate(request);
+    if (!mentor) json(response, 403, { error: 'mentor-domain-not-allowed' });
+    else if (!session) json(response, 404, { error: 'live-session-not-found' });
+    else if (session.mentorEmail !== mentor.email) json(response, 403, { error: 'session-owner-only' });
+    else {
+      session.endedAt = new Date().toISOString();
+      if (database) await database.saveSession(session);
+      json(response, 200, session);
+    }
+    return;
+  }
+
   if (request.method === 'GET' && url.pathname.startsWith('/reports/')) {
     const session = store.get(url.pathname.split('/').pop());
     const mentor = await authenticate(request);
