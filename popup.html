@@ -55,15 +55,17 @@
             <h2 id="calendar-title">Votre agenda</h2>
           </div>
           <div class="card-actions">
-            <button class="calendar-menu-button" id="calendar-settings-button" type="button" aria-controls="calendar-picker" aria-expanded="false">Agendas</button>
+            <button class="calendar-menu-button" id="calendar-settings-button" type="button" aria-label="Configurer le bloc Agenda" aria-controls="calendar-menu" aria-expanded="false">⚙</button>
             <button class="calendar-menu-button" id="calendar-refresh-button" type="button">Rafraîchir</button>
           </div>
         </div>
         <p class="calendar-status" id="calendar-status" role="status" aria-live="polite" aria-atomic="true" aria-busy="false">Connectez-vous pour charger vos événements.</p>
-        <fieldset class="calendar-picker" id="calendar-picker" hidden>
-          <legend>Agendas suivis</legend>
-          <div class="calendar-picker-list" id="calendar-picker-list"></div>
-        </fieldset>
+        <div class="calendar-menu" id="calendar-menu" hidden>
+          <fieldset class="calendar-picker" id="calendar-picker">
+            <legend>Agendas suivis</legend>
+            <div class="calendar-picker-list" id="calendar-picker-list"></div>
+          </fieldset>
+        </div>
         <ul class="event-list" id="event-list" aria-label="Événements Google Agenda"></ul>
       </section>
 

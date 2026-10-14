@@ -195,6 +195,23 @@ h1 span {
   line-height: 1.25;
 }
 
+.calendar-card {
+  position: relative;
+}
+
+.calendar-menu {
+  position: absolute;
+  z-index: 2;
+  top: 48px;
+  right: 9px;
+  width: 235px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--ink-soft);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
+}
+
 .card-actions {
   display: flex;
   align-items: center;

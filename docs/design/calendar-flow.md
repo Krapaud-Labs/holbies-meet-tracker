@@ -4,7 +4,7 @@
 
 Après une autorisation Google réussie, la popup liste d'abord les agendas accessibles via `calendarList`, puis permet de sélectionner ceux à suivre. Elle interroge chaque agenda sélectionné pour la semaine civile en cours, du lundi au dimanche. Toutes les pages retournées par Google via `nextPageToken` sont chargées avant le filtrage et le tri. Un événement terminé depuis plus d'une heure est retiré de la liste.
 
-Le bouton engrenage du bloc Agenda contrôle l'affichage du sélecteur d'agendas. Le bouton de rafraîchissement relance le chargement avec le jeton courant et ne modifie pas la sélection enregistrée.
+Le bouton engrenage du bloc Agenda ouvre un menu interne contenant le sélecteur d'agendas. Il se ferme avec le bouton ou la touche `Escape`. Le bouton de rafraîchissement relance le chargement avec le jeton courant, se désactive pendant l'appel et ne modifie pas la sélection enregistrée.
 
 La réponse affiche uniquement le titre, la date et le lien Google Agenda fourni par l'API. Les valeurs sont rendues avec `textContent` et aucun token ou événement n'est écrit dans un stockage local.
 
