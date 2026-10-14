@@ -549,25 +549,33 @@ async function loadCalendarEvents(token) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8000);
 
-  let response;
+  const calendarItems = [];
+  let pageToken = null;
   try {
-    response = await fetchWithRetry(`${CALENDAR_EVENTS_URL}?${params}`, {
-    headers: { Authorization: `Bearer ${token}` },
-      signal: controller.signal,
-    }, 3);
+    do {
+      const pageParams = new URLSearchParams(params);
+      if (pageToken) pageParams.set('pageToken', pageToken);
+      const response = await fetchWithRetry(`${CALENDAR_EVENTS_URL}?${pageParams}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: controller.signal,
+      }, 3);
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          await chrome.identity.removeCachedAuthToken({ token });
+        }
+        throw new Error(`calendar-request-failed-${response.status}`);
+      }
+
+      const data = await response.json();
+      calendarItems.push(...(Array.isArray(data.items) ? data.items : []));
+      pageToken = data.nextPageToken || null;
+    } while (pageToken);
   } finally {
     clearTimeout(timeout);
   }
 
-  if (!response.ok) {
-    if (response.status === 401) {
-      await chrome.identity.removeCachedAuthToken({ token });
-    }
-    throw new Error(`calendar-request-failed-${response.status}`);
-  }
-
-  const data = await response.json();
-  const events = HolbiesCalendar.filterVisibleAgendaEvents(data.items, now.getTime());
+  const events = HolbiesCalendar.filterVisibleAgendaEvents(calendarItems, now.getTime());
   calendarEvents = events;
   renderEvents(events);
 
