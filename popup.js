@@ -301,11 +301,7 @@ async function detectOpenMeet() {
   analyzeOpenMeetButton.hidden = !meetingCode;
   if (meetingCode) {
     const meetTitle = String(tab?.title || '').replace(/^Meet\s*[–-]\s*/i, '').trim().toLocaleLowerCase('fr-FR');
-    const agendaEvent = calendarEvents.find((event) => extractMeetingCode(getMeetingLink(event)) === meetingCode)
-      || calendarEvents.find((event) => {
-        const summary = String(event.summary || '').trim().toLocaleLowerCase('fr-FR');
-        return summary && meetTitle && (meetTitle.includes(summary) || summary.includes(meetTitle));
-      });
+    const agendaEvent = findAgendaEventForOpenMeet(meetingCode, meetTitle);
     analyzeOpenMeetButton.onclick = () => analyzeMeeting(agendaEvent || {
       summary: 'Meet ouvert',
       hangoutLink: `https://meet.google.com/${meetingCode}`,
@@ -313,6 +309,33 @@ async function detectOpenMeet() {
       attendees: [],
     });
   }
+}
+
+function normalizePersonName(name) {
+  return String(name || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLocaleLowerCase('fr-FR')
+    .replace(/\s+/g, ' ');
+}
+
+function findAgendaEventForOpenMeet(meetingCode, meetTitle) {
+  const byCode = calendarEvents.find((event) => extractMeetingCode(getMeetingLink(event)) === meetingCode);
+  if (byCode) return byCode;
+
+  const byTitle = calendarEvents.find((event) => {
+    const summary = normalizePersonName(event.summary);
+    return summary && meetTitle && (meetTitle.includes(summary) || summary.includes(meetTitle));
+  });
+  if (byTitle) return byTitle;
+
+  const now = Date.now();
+  return calendarEvents
+    .filter((event) => getMeetingLink(event) && event.start?.dateTime)
+    .map((event) => ({ event, distance: Math.abs(Date.parse(event.start.dateTime) - now) }))
+    .filter(({ distance }) => distance <= 24 * 60 * 60 * 1000)
+    .sort((left, right) => left.distance - right.distance)[0]?.event || null;
 }
 
 function extractMeetingCode(hangoutLink) {
@@ -393,7 +416,7 @@ async function analyzeMeeting(event) {
     recordsUrl.searchParams.set('filter', filter);
     recordsUrl.searchParams.set('pageSize', '10');
     const records = await fetchAllMeetPages(recordsUrl, 'conferenceRecords', currentAccessToken);
-    const record = records[0];
+    const record = [...records].sort((left, right) => Date.parse(right.startTime || '') - Date.parse(left.startTime || ''))[0];
 
     if (!record?.name) {
       setAttendanceState('empty', 'Aucun compte rendu Meet disponible pour cette réunion.');
@@ -420,11 +443,13 @@ async function analyzeMeeting(event) {
     }));
 
     const byEmail = new Map(participantRows.filter(Boolean).filter((row) => row.email).map((row) => [row.email, row]));
+    const byName = new Map(participantRows.filter(Boolean).map((row) => [normalizePersonName(row.name), row]));
     const invitedRows = (event.attendees || [])
       .filter((attendee) => normalizeEmail(attendee.email))
       .map((attendee) => {
         const email = normalizeEmail(attendee.email);
-        const match = byEmail.get(email);
+        const attendeeName = attendee.displayName || attendee.email;
+        const match = byEmail.get(email) || byName.get(normalizePersonName(attendeeName));
         const name = splitName(attendee.displayName || attendee.email);
         return match || {
           ...name,
