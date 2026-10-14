@@ -173,4 +173,4 @@ if (typeof chrome !== 'undefined') {
   chrome.alarms.onAlarm.addListener((alarm) => { if (alarm.name === TRACKING_ALARM) runTrackingCycle().catch((error) => console.warn('Holbies tracking unavailable', error)); });
 }
 
-export { eventEnd, eventStart, expectedParticipants, extractMeetingCode, getMeetingCode, isTrackableEvent, shouldCloseEvent };
+export { eventEnd, eventStart, expectedParticipants, extractMeetingCode, getMeetingCode, isTrackableEvent, shouldCloseEvent, syncEvent };
