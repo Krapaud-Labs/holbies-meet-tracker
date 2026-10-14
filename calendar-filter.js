@@ -11,14 +11,22 @@
     return Number.isFinite(timestamp) ? timestamp : null;
   }
 
+  function getEventStartMs(event) {
+    const value = event?.start?.dateTime || event?.start?.date;
+    const timestamp = Date.parse(value || '');
+    return Number.isFinite(timestamp) ? timestamp : Number.MAX_SAFE_INTEGER;
+  }
+
   function isVisibleAgendaEvent(event, nowMs = Date.now()) {
     const endMs = getEventEndMs(event);
     return endMs === null || endMs >= nowMs - HOUR_MS;
   }
 
   function filterVisibleAgendaEvents(events, nowMs = Date.now()) {
-    return (Array.isArray(events) ? events : []).filter((event) => isVisibleAgendaEvent(event, nowMs));
+    return (Array.isArray(events) ? events : [])
+      .filter((event) => isVisibleAgendaEvent(event, nowMs))
+      .sort((left, right) => getEventStartMs(left) - getEventStartMs(right));
   }
 
-  return { HOUR_MS, getEventEndMs, isVisibleAgendaEvent, filterVisibleAgendaEvents };
+  return { HOUR_MS, getEventEndMs, getEventStartMs, isVisibleAgendaEvent, filterVisibleAgendaEvents };
 }));

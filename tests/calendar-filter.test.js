@@ -23,3 +23,11 @@ test('removes events ended more than one hour ago', () => {
   ];
   assert.deepEqual(filterVisibleAgendaEvents(events, now).map(({ id }) => id), ['recent']);
 });
+
+test('sorts visible events by chronological start time', () => {
+  const events = [
+    { id: 'later', start: { dateTime: '2026-10-14T13:00:00Z' }, end: { dateTime: '2026-10-14T14:00:00Z' } },
+    { id: 'earlier', start: { dateTime: '2026-10-14T12:30:00Z' }, end: { dateTime: '2026-10-14T13:00:00Z' } },
+  ];
+  assert.deepEqual(filterVisibleAgendaEvents(events, now).map(({ id }) => id), ['earlier', 'later']);
+});
