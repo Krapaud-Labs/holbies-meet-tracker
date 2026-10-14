@@ -25,7 +25,6 @@ const CALENDAR_EVENTS_URL = 'https://www.googleapis.com/calendar/v3/calendars/pr
 const MEET_RECORDS_URL = 'https://meet.googleapis.com/v2/conferenceRecords';
 const GOOGLE_USERINFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo';
 const SHEETS_SCOPES = ['https://www.googleapis.com/auth/drive.file', 'https://www.googleapis.com/auth/spreadsheets'];
-// URL HTTPS du tunnel gratuit actif sur le VPS. Elle change si le Quick Tunnel est recréé.
 // URL du tunnel HTTPS gratuit actuellement actif sur le VPS.
 const LIVE_BACKEND_URL = 'https://walter-bringing-greatest-warming.trycloudflare.com';
 let currentAccessToken = null;
@@ -34,6 +33,29 @@ let calendarEvents = [];
 let liveSessionId = null;
 let livePollTimer = null;
 const AUTH_TIMEOUT_MS = 15000;
+
+liveReportLink.addEventListener('click', async (event) => {
+  event.preventDefault();
+  if (!currentAccessToken || !liveReportLink.href) return;
+
+  const reportWindow = window.open('about:blank', '_blank');
+  if (!reportWindow) {
+    liveStatus.textContent = 'Autorisez les fenêtres pop-up pour ouvrir le rapport.';
+    return;
+  }
+
+  try {
+    const response = await fetchWithRetry(liveReportLink.href, {
+      headers: { Authorization: `Bearer ${currentAccessToken}` },
+    });
+    const reportUrl = URL.createObjectURL(await response.blob());
+    reportWindow.location.href = reportUrl;
+    setTimeout(() => URL.revokeObjectURL(reportUrl), 60000);
+  } catch {
+    reportWindow.close();
+    liveStatus.textContent = 'Rapport live indisponible. Actualisez la session et réessayez.';
+  }
+});
 
 function withTimeout(promise, timeoutMs, errorCode) {
   let timeoutId;
