@@ -138,19 +138,38 @@ async function syncEvent(event, token, sessions) {
 }
 
 async function runTrackingCycle() {
-  const token = await getToken();
-  const events = await fetchCalendarEvents(token);
-  const saved = await chrome.storage.local.get('holbiesLiveSessions');
-  const sessions = saved.holbiesLiveSessions || {};
-  for (const event of events.filter((item) => isTrackableEvent(item))) {
-    try { await syncEvent(event, token, sessions); } catch (error) { console.warn('Holbies tracking cycle failed', event.id, error); }
+  const startedAt = new Date().toISOString();
+  try {
+    const token = await getToken();
+    const events = await fetchCalendarEvents(token);
+    const saved = await chrome.storage.local.get('holbiesLiveSessions');
+    const sessions = saved.holbiesLiveSessions || {};
+    const trackedEvents = events.filter((item) => isTrackableEvent(item));
+    const errors = [];
+    for (const event of trackedEvents) {
+      try { await syncEvent(event, token, sessions); } catch (error) {
+        errors.push({ eventId: event.id, message: error.message });
+        console.warn('Holbies tracking cycle failed', event.id, error);
+      }
+    }
+    await chrome.storage.local.set({
+      holbiesLiveSessions: sessions,
+      holbiesTrackingStatus: { state: errors.length ? 'degraded' : 'ok', startedAt, finishedAt: new Date().toISOString(), trackedEvents: trackedEvents.length, errors },
+      holbiesLastTrackingAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    await chrome.storage.local.set({ holbiesTrackingStatus: { state: 'error', startedAt, finishedAt: new Date().toISOString(), trackedEvents: 0, errors: [{ message: error.message }] } });
+    throw error;
   }
-  await chrome.storage.local.set({ holbiesLiveSessions: sessions, holbiesLastTrackingAt: new Date().toISOString() });
 }
 
 if (typeof chrome !== 'undefined') {
-  chrome.runtime.onInstalled.addListener(() => chrome.alarms.create(TRACKING_ALARM, { periodInMinutes: 1 }));
-  chrome.runtime.onStartup.addListener(() => chrome.alarms.create(TRACKING_ALARM, { periodInMinutes: 1 }));
+  const startTracking = () => {
+    chrome.alarms.create(TRACKING_ALARM, { periodInMinutes: 1 });
+    runTrackingCycle().catch((error) => console.warn('Holbies tracking unavailable', error));
+  };
+  chrome.runtime.onInstalled.addListener(startTracking);
+  chrome.runtime.onStartup.addListener(startTracking);
   chrome.alarms.onAlarm.addListener((alarm) => { if (alarm.name === TRACKING_ALARM) runTrackingCycle().catch((error) => console.warn('Holbies tracking unavailable', error)); });
 }
 

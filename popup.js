@@ -698,6 +698,16 @@ function restoreGoogleSession() {
     });
 }
 
+async function showBackgroundTrackingStatus() {
+  if (!chrome.storage?.local) return;
+  const { holbiesTrackingStatus: status } = await chrome.storage.local.get('holbiesTrackingStatus');
+  if (!status) return;
+  const when = status.finishedAt ? new Date(status.finishedAt).toLocaleTimeString('fr-FR') : 'jamais';
+  if (status.state === 'ok') liveStatus.textContent = `Suivi arrière-plan actif : ${status.trackedEvents} réunion(s), dernier cycle ${when}.`;
+  else if (status.state === 'degraded') liveStatus.textContent = `Suivi arrière-plan partiel : ${status.errors.length} erreur(s), dernier cycle ${when}.`;
+  else liveStatus.textContent = `Suivi arrière-plan indisponible depuis ${when}. Ouvrez la popup pour réautoriser Google.`;
+}
+
 signInButton.addEventListener('click', connectGoogleAccount);
 signOutButton.addEventListener('click', disconnectGoogleAccount);
 exportConsent.addEventListener('change', () => {
@@ -706,3 +716,4 @@ exportConsent.addEventListener('change', () => {
 localExportButton.addEventListener('click', downloadLocalCsv);
 exportButton.addEventListener('click', exportAttendanceToSheets);
 restoreGoogleSession();
+showBackgroundTrackingStatus().catch(() => {});
