@@ -438,7 +438,14 @@ async function fetchMeetPage(url, token) {
 
   if (!response.ok) {
     if (response.status === 401) await chrome.identity.removeCachedAuthToken({ token });
-    throw new Error(`meet-request-failed-${response.status}`);
+    let reason = '';
+    try {
+      const details = await response.json();
+      reason = details?.error?.status || details?.error?.reason || '';
+    } catch {
+      // Google peut répondre sans JSON, le statut HTTP reste exploitable.
+    }
+    throw new Error(`meet-request-failed-${response.status}${reason ? `-${reason.toLowerCase()}` : ''}`);
   }
 
   return response.json();
@@ -549,7 +556,15 @@ async function analyzeMeeting(event) {
     exportButton.disabled = true;
     const message = error.name === 'AbortError'
       ? 'La recherche Meet a dépassé le délai prévu.'
-      : 'Impossible de charger les présences Meet. Vérifiez vos droits sur la réunion.';
+      : error.message?.startsWith('meet-request-failed-401')
+        ? 'La session Google a expiré. Déconnectez-vous puis reconnectez le compte.'
+        : error.message?.startsWith('meet-request-failed-403')
+          ? 'Google refuse l’accès aux présences. Vous devez être organisateur ou participant autorisé de cette réunion, et l’API Google Meet doit être activée.'
+          : error.message?.startsWith('meet-request-failed-404')
+            ? 'Le compte rendu Meet est indisponible ou la réunion n’est pas encore terminée.'
+            : error.message?.startsWith('meet-request-failed-429')
+              ? 'Google limite momentanément les requêtes. Réessayez dans quelques instants.'
+              : 'Impossible de charger les présences Meet. Vérifiez la connexion du compte et les droits sur la réunion.';
     setAttendanceState('unavailable', message);
   }
 }
