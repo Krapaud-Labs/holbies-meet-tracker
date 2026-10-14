@@ -157,6 +157,16 @@ function normalizeEmail(email) {
   return typeof email === 'string' ? email.trim().toLowerCase() : null;
 }
 
+function selectClosestMeetRecord(records, scheduledStart) {
+  const target = Date.parse(scheduledStart || '');
+  return [...records]
+    .filter((record) => record?.name && !Number.isNaN(Date.parse(record.startTime || '')))
+    .sort((left, right) => {
+      if (Number.isNaN(target)) return Date.parse(right.startTime) - Date.parse(left.startTime);
+      return Math.abs(Date.parse(left.startTime) - target) - Math.abs(Date.parse(right.startTime) - target);
+    })[0] || null;
+}
+
 function formatExportDate(value) {
   if (!value) return '';
   const date = new Date(value);
@@ -505,7 +515,7 @@ async function analyzeMeeting(event) {
     recordsUrl.searchParams.set('filter', filter);
     recordsUrl.searchParams.set('pageSize', '10');
     const records = await fetchAllMeetPages(recordsUrl, 'conferenceRecords', currentAccessToken);
-    const record = [...records].sort((left, right) => Date.parse(right.startTime || '') - Date.parse(left.startTime || ''))[0];
+    const record = selectClosestMeetRecord(records, event.start?.dateTime || event.start?.date);
 
     if (!record?.name) {
       setAttendanceState('empty', 'Aucun compte rendu Meet disponible pour cette réunion.');
