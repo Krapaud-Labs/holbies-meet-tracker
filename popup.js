@@ -42,6 +42,8 @@ let calendarCatalog = [];
 let liveSessionId = null;
 let livePollTimer = null;
 const AUTH_TIMEOUT_MS = 15000;
+const LIVE_START_WINDOW_MS = 15 * 60 * 1000;
+const LIVE_END_GRACE_MS = 10 * 60 * 1000;
 
 liveReportLink.addEventListener('click', async (event) => {
   event.preventDefault();
@@ -82,6 +84,14 @@ function stopLiveTracking() {
   liveSessionId = null;
   liveIndicator.hidden = true;
   liveReportLink.hidden = true;
+}
+
+function shouldTrackLive(event, now = Date.now()) {
+  const start = Date.parse(event?.start?.dateTime || event?.start?.date || '');
+  const end = Date.parse(event?.end?.dateTime || event?.end?.date || '');
+  return !Number.isNaN(start) && !Number.isNaN(end)
+    && now >= start - LIVE_START_WINDOW_MS
+    && now <= end + LIVE_END_GRACE_MS;
 }
 
 function describeLiveBackendError(error) {
@@ -484,6 +494,7 @@ async function analyzeMeeting(event) {
   }
 
   setAttendanceState('loading', 'Recherche du compte rendu Meet…');
+  stopLiveTracking();
   participantList.replaceChildren();
   currentAttendanceRows = [];
   exportButton.disabled = true;
@@ -547,7 +558,9 @@ async function analyzeMeeting(event) {
     }));
 
     renderAttendanceRows(rows);
-    await startLiveTracking(record.name, event.start?.dateTime || event.start?.date, invitedRows.map((row) => ({ email: row.email, displayName: row.name })));
+    if (shouldTrackLive(event)) {
+      await startLiveTracking(record.name, event.start?.dateTime || event.start?.date, invitedRows.map((row) => ({ email: row.email, displayName: row.name })));
+    }
     setAttendanceState(rows.length ? 'success' : 'empty', rows.length
       ? `${rows.length} participant${rows.length > 1 ? 's' : ''} trouvé${rows.length > 1 ? 's' : ''}.`
       : 'Aucun participant dans ce compte rendu.');
