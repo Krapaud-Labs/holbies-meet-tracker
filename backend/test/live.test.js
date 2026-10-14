@@ -29,6 +29,8 @@ test('renders a safe HTML report with late participants highlighted', () => {
   const html = renderReportHtml({ mentorEmail: 'mentor@holbertonschool.com', participants: [{ name: '<Alice>', status: 'late', lateMinutes: 8 }] });
   assert.match(html, /&lt;Alice&gt;/);
   assert.match(html, /class="late"/);
+  assert.match(html, /prefers-color-scheme:dark/);
+  assert.match(html, /color-scheme/);
   assert.doesNotMatch(html, /<Alice>/);
 });
 
