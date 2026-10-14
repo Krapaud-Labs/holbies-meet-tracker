@@ -23,6 +23,7 @@ const liveReportLink = document.querySelector('#live-report-link');
 const CALENDAR_EVENTS_URL = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
 const MEET_RECORDS_URL = 'https://meet.googleapis.com/v2/conferenceRecords';
 const GOOGLE_USERINFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo';
+const SHEETS_SCOPES = ['https://www.googleapis.com/auth/drive.file', 'https://www.googleapis.com/auth/spreadsheets'];
 // URL HTTPS du tunnel gratuit actif sur le VPS. Elle change si le Quick Tunnel est recréé.
 const LIVE_BACKEND_URL = 'https://beverage-aerospace-conventions-stewart.trycloudflare.com';
 let currentAccessToken = null;
@@ -186,6 +187,8 @@ async function exportAttendanceToSheets() {
   exportButton.setAttribute('aria-busy', 'true');
   exportButton.textContent = 'Export en cours…';
   try {
+    const sheetsSession = await withTimeout(chrome.identity.getAuthToken({ interactive: true, scopes: [...chrome.runtime.getManifest().oauth2.scopes, ...SHEETS_SCOPES] }), AUTH_TIMEOUT_MS, 'google-auth-timeout');
+    currentAccessToken = normalizeAuthSession(sheetsSession).token;
     const createResponse = await fetchWithRetry('https://sheets.googleapis.com/v4/spreadsheets', {
       method: 'POST',
       headers: { Authorization: `Bearer ${currentAccessToken}`, 'Content-Type': 'application/json' },
@@ -536,7 +539,10 @@ async function disconnectGoogleAccount() {
 
 function finishGoogleConnection({ token, grantedScopes = [] }, message = 'Compte Google connecté.') {
   const requiredScopes = chrome.runtime.getManifest().oauth2.scopes;
-  const hasRequiredScopes = requiredScopes.every((scope) => grantedScopes.includes(scope));
+  // Selon la version de Chrome, getAuthToken peut renvoyer un token sans la
+  // liste grantedScopes. L'API ayant déjà validé le token, cette absence ne
+  // doit pas masquer le compte connecté ni fermer la popup silencieusement.
+  const hasRequiredScopes = grantedScopes.length === 0 || requiredScopes.every((scope) => grantedScopes.includes(scope));
 
   if (!token || !hasRequiredScopes) throw new Error('required-scopes-not-granted');
 
@@ -555,12 +561,17 @@ function finishGoogleConnection({ token, grantedScopes = [] }, message = 'Compte
     });
 }
 
+function normalizeAuthSession(session) {
+  if (typeof session === 'string') return { token: session, grantedScopes: [] };
+  return session || {};
+}
+
 function connectGoogleAccount() {
   setLoading(true);
   setAuthState('loading', 'Ouverture de la connexion Google…');
 
   withTimeout(chrome.identity.getAuthToken({ interactive: true }), AUTH_TIMEOUT_MS, 'google-auth-timeout')
-    .then((session) => finishGoogleConnection(session))
+    .then((session) => finishGoogleConnection(normalizeAuthSession(session)))
     .catch((error) => {
       setLoading(false);
       const message = error?.message === 'google-auth-timeout'
@@ -572,7 +583,7 @@ function connectGoogleAccount() {
 
 function restoreGoogleSession() {
   withTimeout(chrome.identity.getAuthToken({ interactive: false }), AUTH_TIMEOUT_MS, 'google-auth-timeout')
-    .then((session) => finishGoogleConnection(session, 'Compte Google déjà connecté.'))
+    .then((session) => finishGoogleConnection(normalizeAuthSession(session), 'Compte Google déjà connecté.'))
     .catch(() => {
       // Aucun token en cache : l'utilisateur verra l'action de connexion.
     });
