@@ -73,6 +73,13 @@ function stopLiveTracking() {
   liveReportLink.hidden = true;
 }
 
+function describeLiveBackendError(error) {
+  const status = error?.message?.match(/request-failed-(\d+)/)?.[1];
+  if (status === '401' || status === '403') return `Accès backend refusé (HTTP ${status}). Reconnectez le compte Google.`;
+  if (status) return `Backend live en erreur (HTTP ${status}).`;
+  return 'Backend live inaccessible. Vérifiez le tunnel HTTPS et votre connexion.';
+}
+
 async function startLiveTracking(meetingId, scheduledStart, expectedParticipants) {
   if (!LIVE_BACKEND_URL || !currentAccessToken) return;
   try {
@@ -98,8 +105,8 @@ async function startLiveTracking(meetingId, scheduledStart, expectedParticipants
     };
     await refresh();
     livePollTimer = setInterval(() => refresh().catch(() => {}), 5000);
-  } catch {
-    liveStatus.textContent = 'Backend live indisponible. Le relevé Meet reste disponible localement.';
+  } catch (error) {
+    liveStatus.textContent = `${describeLiveBackendError(error)} Le relevé Meet reste disponible localement.`;
   }
 }
 
