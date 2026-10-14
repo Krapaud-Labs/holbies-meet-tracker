@@ -536,8 +536,12 @@ async function loadCalendarEvents(token) {
   eventList.replaceChildren();
 
   const now = new Date();
-  const timeMin = new Date(now.getTime() - HolbiesCalendar.HOUR_MS);
-  const timeMax = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+  const dayFromMonday = (now.getDay() + 6) % 7;
+  const timeMin = new Date(now);
+  timeMin.setDate(now.getDate() - dayFromMonday);
+  timeMin.setHours(0, 0, 0, 0);
+  const timeMax = new Date(timeMin);
+  timeMax.setDate(timeMin.getDate() + 7);
   const params = new URLSearchParams({
     timeMin: timeMin.toISOString(),
     timeMax: timeMax.toISOString(),
