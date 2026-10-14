@@ -581,34 +581,6 @@ h2 {
   outline-offset: 4px;
 }
 
-.quick-stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1px;
-  margin-top: 8px;
-  background: var(--line);
-}
-
-.stat-item {
-  min-width: 0;
-  padding: 5px 8px 4px;
-  background: var(--ink);
-}
-
-.stat-value {
-  display: block;
-  margin-bottom: 2px;
-  color: var(--paper);
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: -0.06em;
-}
-
-.stat-label {
-  color: var(--muted);
-  font-size: 8px;
-}
-
 @media (max-width: 340px) {
   .popup-shell {
     padding-inline: 16px;
