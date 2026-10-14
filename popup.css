@@ -22,8 +22,8 @@
 html,
 body {
   margin: 0;
-  width: 100%;
-  min-width: 0;
+  width: 720px;
+  min-width: 720px;
   background: var(--ink);
 }
 
@@ -42,8 +42,8 @@ a {
 }
 
 .popup-shell {
-  width: min(720px, 100vw);
-  min-width: 0;
+  width: 720px;
+  min-width: 720px;
   min-height: 0;
   margin: 0 auto;
   padding: 10px 14px 8px;
