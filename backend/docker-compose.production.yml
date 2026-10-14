@@ -1,4 +1,12 @@
 services:
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate --url http://backend:8080
+    depends_on:
+      backend:
+        condition: service_started
+
   backend:
     build: .
     restart: unless-stopped
