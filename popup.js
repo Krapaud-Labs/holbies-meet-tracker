@@ -536,8 +536,12 @@ async function loadCalendarEvents(token) {
   eventList.replaceChildren();
 
   const now = new Date();
-  const timeMin = new Date(now.getTime() - HolbiesCalendar.HOUR_MS);
-  const timeMax = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+  const dayFromMonday = (now.getDay() + 6) % 7;
+  const timeMin = new Date(now);
+  timeMin.setDate(now.getDate() - dayFromMonday);
+  timeMin.setHours(0, 0, 0, 0);
+  const timeMax = new Date(timeMin);
+  timeMax.setDate(timeMin.getDate() + 7);
   const params = new URLSearchParams({
     timeMin: timeMin.toISOString(),
     timeMax: timeMax.toISOString(),
@@ -549,25 +553,33 @@ async function loadCalendarEvents(token) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8000);
 
-  let response;
+  const calendarItems = [];
+  let pageToken = null;
   try {
-    response = await fetchWithRetry(`${CALENDAR_EVENTS_URL}?${params}`, {
-    headers: { Authorization: `Bearer ${token}` },
-      signal: controller.signal,
-    }, 3);
+    do {
+      const pageParams = new URLSearchParams(params);
+      if (pageToken) pageParams.set('pageToken', pageToken);
+      const response = await fetchWithRetry(`${CALENDAR_EVENTS_URL}?${pageParams}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: controller.signal,
+      }, 3);
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          await chrome.identity.removeCachedAuthToken({ token });
+        }
+        throw new Error(`calendar-request-failed-${response.status}`);
+      }
+
+      const data = await response.json();
+      calendarItems.push(...(Array.isArray(data.items) ? data.items : []));
+      pageToken = data.nextPageToken || null;
+    } while (pageToken);
   } finally {
     clearTimeout(timeout);
   }
 
-  if (!response.ok) {
-    if (response.status === 401) {
-      await chrome.identity.removeCachedAuthToken({ token });
-    }
-    throw new Error(`calendar-request-failed-${response.status}`);
-  }
-
-  const data = await response.json();
-  const events = HolbiesCalendar.filterVisibleAgendaEvents(data.items, now.getTime());
+  const events = HolbiesCalendar.filterVisibleAgendaEvents(calendarItems, now.getTime());
   calendarEvents = events;
   renderEvents(events);
 

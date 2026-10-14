@@ -4,7 +4,9 @@ Extension Chrome Manifest V3 pour préparer le suivi de présence des réunions 
 
 ## Interface
 
-La liste Agenda conserve les événements à venir et ceux terminés depuis moins d'une heure. Les événements plus anciens sont retirés automatiquement au rechargement.
+La liste Agenda récupère uniquement la semaine civile en cours, conserve les événements à venir et ceux terminés depuis moins d'une heure. Les événements plus anciens sont retirés automatiquement au rechargement.
+
+La lecture Agenda suit aussi la pagination Google (`nextPageToken`) afin d'afficher tous les événements de la période demandée, et pas seulement la première page.
 
 La popup adopte une direction sombre, rouge cerise, rose et blanc rosé inspirée de l'énergie visuelle du [site Holberton School France](https://www.holbertonschool.fr/). Elle utilise un asset hippocampe local, avec une alternative textuelle, des cartes lisibles, des titres courts, des appels à l'action explicites et des messages textuels pour chaque état. Le parcours OAuth est borné à 15 secondes afin d'éviter une popup bloquée si Chrome ou Google ne répond pas.
 
