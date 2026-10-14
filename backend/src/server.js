@@ -138,7 +138,12 @@ const server = http.createServer(async (request, response) => {
     else if (!session) json(response, 404, { error: 'report-not-found' });
     else if (session.mentorEmail !== mentor.email) json(response, 403, { error: 'session-owner-only' });
     else {
-      response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      response.writeHead(200, {
+        'content-type': 'text/html; charset=utf-8',
+        'cache-control': 'no-store',
+        'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'",
+        'x-content-type-options': 'nosniff',
+      });
       response.end(renderReportHtml(session));
     }
     return;
