@@ -536,7 +536,7 @@ async function loadCalendarEvents(token) {
   eventList.replaceChildren();
 
   const now = new Date();
-  const timeMin = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const timeMin = new Date(now.getTime() - HolbiesCalendar.HOUR_MS);
   const timeMax = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
   const params = new URLSearchParams({
     timeMin: timeMin.toISOString(),
@@ -567,7 +567,7 @@ async function loadCalendarEvents(token) {
   }
 
   const data = await response.json();
-  const events = Array.isArray(data.items) ? data.items : [];
+  const events = HolbiesCalendar.filterVisibleAgendaEvents(data.items, now.getTime());
   calendarEvents = events;
   renderEvents(events);
 
