@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { applyMeetEvent, calculateStatus, createLiveStore, decodeWorkspaceEvent, getParticipantStatuses, isAllowedEmail, renderReportHtml, verifyEventsSecret, verifyGoogleAccessToken } from '../src/live.js';
+import { applyMeetEvent, applyParticipantSnapshot, calculateStatus, createLiveStore, decodeWorkspaceEvent, getParticipantStatuses, isAllowedEmail, renderReportHtml, verifyEventsSecret, verifyGoogleAccessToken } from '../src/live.js';
 
 test('only Holberton School emails are allowed', () => {
   assert.equal(isAllowedEmail('mentor@holbertonschool.com'), true);
@@ -50,4 +50,17 @@ test('decodes and applies a Google Meet participant join event', () => {
 test('marks expected participants who have not joined as absent', () => {
   const statuses = getParticipantStatuses({ expectedParticipants: [{ email: 'absent@holbertonschool.com', displayName: 'Absent Person' }], participants: [] });
   assert.deepEqual(statuses, [{ name: 'Absent Person', email: 'absent@holbertonschool.com', status: 'absent', lateMinutes: 0 }]);
+});
+
+test('updates a live session from a participant snapshot', () => {
+  const session = { scheduledStart: '2026-10-13T09:00:00Z', participants: [] };
+  applyParticipantSnapshot(session, [{ email: 'ada@holbertonschool.com', name: 'Ada Lovelace', joinedAt: '2026-10-13T09:05:00Z' }]);
+  assert.deepEqual(session.participants[0], {
+    email: 'ada@holbertonschool.com',
+    name: 'Ada Lovelace',
+    joinedAt: '2026-10-13T09:05:00Z',
+    leftAt: null,
+    status: 'late',
+    lateMinutes: 5,
+  });
 });

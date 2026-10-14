@@ -70,6 +70,26 @@ function applyMeetEvent(session, event) {
   return session;
 }
 
+function applyParticipantSnapshot(session, participants) {
+  if (!session || !Array.isArray(participants)) return session;
+  session.participants = participants
+    .filter((participant) => participant && (participant.name || participant.email))
+    .slice(0, 250)
+    .map((participant) => {
+      const joinedAt = participant.joinedAt || participant.firstJoin || null;
+      const status = calculateStatus(joinedAt, session.scheduledStart);
+      return {
+        name: participant.name || participant.email || 'Participant inconnu',
+        email: participant.email || null,
+        joinedAt,
+        leftAt: participant.leftAt || participant.lastLeave || null,
+        status: status.status,
+        lateMinutes: status.lateMinutes,
+      };
+    });
+  return session;
+}
+
 function getParticipantStatuses(session) {
   const current = new Map((session?.participants || []).map((participant) => [participant.email || participant.name, participant]));
   const expectedStatuses = (session?.expectedParticipants || []).map((expected) => {
@@ -101,4 +121,4 @@ function renderReportHtml(session) {
   return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Rapport de réunion</title><style>:root{color-scheme:dark;--ink:#160b12;--panel:#24101b;--paper:#fff5f7;--muted:#d5b8c2;--cherry:#ff2d55}body{margin:0;padding:32px;background:var(--ink);color:var(--paper);font:16px Arial,sans-serif}main{max-width:960px;margin:auto}.eyebrow{color:var(--cherry);font-weight:800;letter-spacing:.12em}section{padding:24px;margin-top:20px;background:var(--panel);border:1px solid #683345}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:12px;border-bottom:1px solid #683345}.late{color:var(--cherry);font-weight:800}.absent{color:var(--muted);font-weight:800}</style></head><body><main><p class="eyebrow">HOLBIES MEET TRACKER</p><h1>Rapport de réunion</h1><p>Mentor : ${escapeHtml(session?.mentorEmail)}</p><section><h2>Présences</h2><table><thead><tr><th>Participant</th><th>Statut</th><th>Retard</th></tr></thead><tbody>${rows || '<tr><td colspan="3">Aucune présence enregistrée.</td></tr>'}</tbody></table></section></main></body></html>`;
 }
 
-export { ALLOWED_DOMAIN, applyMeetEvent, calculateStatus, createLiveStore, decodeWorkspaceEvent, getParticipantStatuses, isAllowedEmail, renderReportHtml, verifyEventsSecret, verifyGoogleAccessToken };
+export { ALLOWED_DOMAIN, applyMeetEvent, applyParticipantSnapshot, calculateStatus, createLiveStore, decodeWorkspaceEvent, getParticipantStatuses, isAllowedEmail, renderReportHtml, verifyEventsSecret, verifyGoogleAccessToken };
