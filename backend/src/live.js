@@ -51,7 +51,12 @@ function decodeWorkspaceEvent(payload) {
 }
 
 function applyMeetEvent(session, event) {
-  if (!session || !event?.participantSession) return session;
+  if (!session || !event) return session;
+  if (event.type?.endsWith('.conference.v2.ended')) {
+    session.endedAt = event.eventTime || new Date().toISOString();
+    return session;
+  }
+  if (!event.participantSession) return session;
   const participant = event.participantSession;
   const name = participant.displayName || participant.name || 'Participant inconnu';
   const email = participant.email?.toLowerCase?.() || null;
@@ -107,7 +112,12 @@ function getParticipantStatuses(session) {
   const expectedStatuses = (session?.expectedParticipants || []).map((expected) => {
     const key = expected.email || expected.name || expected.displayName;
     const participant = current.get(key) || current.get(expected.name || expected.displayName);
-    return participant || { name: expected.displayName || expected.name, email: expected.email || null, status: 'absent', lateMinutes: 0 };
+    return participant || {
+      name: expected.displayName || expected.name,
+      email: expected.email || null,
+      status: session?.endedAt ? 'absent' : 'waiting',
+      lateMinutes: 0,
+    };
   });
   const expectedKeys = new Set((session?.expectedParticipants || []).flatMap((expected) => [expected.email, expected.name, expected.displayName].filter(Boolean)));
   return [...expectedStatuses, ...(session?.participants || []).filter((participant) => !expectedKeys.has(participant.email) && !expectedKeys.has(participant.name))];
