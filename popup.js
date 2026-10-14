@@ -8,6 +8,8 @@ const accountEmail = document.querySelector('#account-email');
 const calendarStatus = document.querySelector('#calendar-status');
 const calendarPicker = document.querySelector('#calendar-picker');
 const calendarPickerList = document.querySelector('#calendar-picker-list');
+const calendarSettingsButton = document.querySelector('#calendar-settings-button');
+const calendarRefreshButton = document.querySelector('#calendar-refresh-button');
 const eventList = document.querySelector('#event-list');
 const attendanceStatus = document.querySelector('#attendance-status');
 const analyzeOpenMeetButton = document.querySelector('#analyze-open-meet-button');
@@ -219,6 +221,11 @@ function renderCalendarPicker(calendars, selectedIds) {
     calendarPickerList.append(label);
   });
   calendarPicker.hidden = calendars.length === 0;
+}
+
+function setCalendarPickerOpen(isOpen) {
+  calendarPicker.hidden = !isOpen || calendarCatalog.length === 0;
+  calendarSettingsButton.setAttribute('aria-expanded', String(isOpen));
 }
 
 function formatEventDate(event) {
@@ -788,6 +795,13 @@ async function showBackgroundTrackingStatus() {
 
 signInButton.addEventListener('click', connectGoogleAccount);
 signOutButton.addEventListener('click', disconnectGoogleAccount);
+calendarSettingsButton.addEventListener('click', () => {
+  setCalendarPickerOpen(calendarPicker.hidden);
+});
+calendarRefreshButton.addEventListener('click', () => {
+  if (!currentAccessToken) return;
+  loadCalendarEvents(currentAccessToken).catch(() => {});
+});
 exportConsent.addEventListener('change', () => {
   exportButton.disabled = currentAttendanceRows.length === 0 || !exportConsent.checked;
 });

@@ -54,7 +54,10 @@
             <p class="card-kicker">ÉTAPE 02</p>
             <h2 id="calendar-title">Votre agenda</h2>
           </div>
-          <span class="card-icon" aria-hidden="true">◷</span>
+          <div class="card-actions">
+            <button class="calendar-menu-button" id="calendar-settings-button" type="button" aria-controls="calendar-picker" aria-expanded="false">Agendas</button>
+            <button class="calendar-menu-button" id="calendar-refresh-button" type="button">Rafraîchir</button>
+          </div>
         </div>
         <p class="calendar-status" id="calendar-status" role="status" aria-live="polite" aria-atomic="true" aria-busy="false">Connectez-vous pour charger vos événements.</p>
         <fieldset class="calendar-picker" id="calendar-picker" hidden>
