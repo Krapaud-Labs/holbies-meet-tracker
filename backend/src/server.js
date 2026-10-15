@@ -158,7 +158,7 @@ const server = http.createServer(async (request, response) => {
       response.writeHead(200, {
         'content-type': 'text/html; charset=utf-8',
         'cache-control': 'no-store',
-        'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'",
+        'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'",
         'x-content-type-options': 'nosniff',
       });
       response.end(renderReportHtml(session));
