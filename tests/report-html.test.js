@@ -13,5 +13,8 @@ assert.match(popup, /data-column="participant"/);
 assert.match(popup, /data-column="email"/);
 assert.match(popup, /data-column="status"/);
 assert.match(popup, /data-column="arrival"/);
+assert.match(popup, /id="print-report"/);
+assert.match(popup, /window\.print\(\)/);
+assert.match(popup, /@media print/);
 
 console.log('report HTML column filters are wired');
