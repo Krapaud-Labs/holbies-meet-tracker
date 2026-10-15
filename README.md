@@ -39,3 +39,5 @@ Voir [la documentation backend](backend/README.md) pour lancer les tests et le s
 4. Ouvrir la popup depuis l'icône de l'extension.
 
 Le projet n'utilise pas encore de gestionnaire de paquets ni de build : les fichiers HTML et CSS sont chargés directement par Chrome.
+
+Dans la popup, le bloc Présences affiche uniquement les quatre compteurs du résumé. Les détails restent disponibles dans les exports HTML, CSV et Google Sheets.

@@ -432,14 +432,7 @@ h1 span {
 }
 
 .participant-list {
-  display: grid;
-  gap: 4px;
-  margin: 7px 0 0;
-  padding: 0;
-  list-style: none;
-  max-height: 190px;
-  overflow-y: auto;
-  scrollbar-color: var(--cherry) var(--ink-soft);
+  display: none;
 }
 
 .attendance-summary {
