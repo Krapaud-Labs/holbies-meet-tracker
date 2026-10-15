@@ -50,4 +50,6 @@ Le projet n'utilise pas encore de gestionnaire de paquets ni de build : les fich
 
 Dans la popup, le bloc Présences affiche uniquement les quatre compteurs du résumé. Les détails restent disponibles dans les exports HTML, CSV et Google Sheets.
 
+Le rapport HTML permet de trier les participants par nom, e-mail, statut ou heure d’arrivée. Les statuts sont classés avec les retards puis les absences en tête, et l’action « Télécharger en PDF » ouvre l’impression système avec une mise en page adaptée.
+
 Les rapports HTML local et live utilisent le même résumé chiffré, un tableau lisible sur mobile avec retour à la ligne des emails, et le thème clair/sombre du système. Le rapport live traduit aussi les statuts techniques en libellés français.
