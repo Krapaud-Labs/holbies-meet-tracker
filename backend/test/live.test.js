@@ -129,3 +129,18 @@ test('merges an ID email and nominative email into one live identity', () => {
   assert.equal(statuses[0].status, 'on-time');
   assert.equal(statuses[0].joinedAt, '2026-10-13T09:46:00Z');
 });
+
+test('deduplicates ID and nominative aliases across live events', () => {
+  const session = { scheduledStart: '2026-10-13T09:45:00Z', participants: [] };
+  applyMeetEvent(session, {
+    type: 'google.workspace.meet.participant.v2.joined',
+    participantSession: { email: '14000@holbertonstudents.com', displayName: 'Pierre Cardin', startTime: '2026-10-13T09:46:00Z' },
+  });
+  applyMeetEvent(session, {
+    type: 'google.workspace.meet.participant.v2.joined',
+    participantSession: { email: 'pierre.cardin@holbertonstudents.com', displayName: 'Pierre Cardin', startTime: '2026-10-13T09:47:00Z' },
+  });
+  assert.equal(session.participants.length, 1);
+  assert.equal(session.participants[0].joinedAt, '2026-10-13T09:46:00Z');
+  assert.equal(session.participants[0].status, 'on-time');
+});
