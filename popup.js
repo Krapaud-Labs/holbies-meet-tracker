@@ -299,14 +299,8 @@ function createLocalReportHtmlBase(rows) {
     return summary;
   }, {});
   const title = rows[0]?.meeting || 'Rapport de réunion Google Meet';
-  const tableRows = rows.map((row) => `<tr><td data-column="participant">${escapeReportHtml(row.name || `${row.firstName || ''} ${row.lastName || ''}`.trim())}</td><td data-column="email">${escapeReportHtml(row.email || '')}</td><td data-column="status" class="${row.status === 'en retard' ? 'late' : row.status === 'absent' ? 'absent' : ''}">${escapeReportHtml(row.status)}</td><td data-column="arrival">${escapeReportHtml(formatReportTime(row.arrival))}</td></tr>`).join('');
-  return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><title>${escapeReportHtml(title)}</title><style>:root{color-scheme:light dark;--bg:#fff7f8;--panel:#fff;--ink:#24101b;--muted:#704c59;--line:#efd8df;--accent:#d7194f}@media(prefers-color-scheme:dark){:root{--bg:#160b12;--panel:#24101b;--ink:#fff5f7;--muted:#d5b8c2;--line:#683345;--accent:#ff2d55}}*{box-sizing:border-box}body{margin:0;min-width:0;padding:clamp(18px,4vw,48px);overflow-x:hidden;background:var(--bg);color:var(--ink);font:16px Arial,sans-serif}main{width:min(100%,1100px);margin:auto}h1{margin:0 0 8px}p{color:var(--muted)}.actions{display:flex;gap:10px;flex-wrap:wrap}.actions button{padding:10px 14px;border:1px solid var(--accent);border-radius:8px;background:var(--accent);color:#fff;font-weight:700;cursor:pointer}.summary{display:flex;gap:12px;flex-wrap:wrap}.summary span{padding:12px 16px;border:1px solid var(--line);border-top:3px solid var(--accent);background:var(--panel);border-radius:10px}.sort-help{color:var(--muted);font-size:14px}.column-hidden{display:none!important}section{margin-top:24px;padding:clamp(14px,3vw,20px);background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow-x:auto}table{width:100%;min-width:620px;border-collapse:collapse;table-layout:fixed}th,td{text-align:left;padding:12px 10px;border-bottom:1px solid var(--line);overflow-wrap:anywhere;vertical-align:top}th:nth-child(1){width:28%}th:nth-child(2){width:36%}th:nth-child(3){width:18%}th:nth-child(4){width:18%}th{color:var(--muted);font-size:12px;text-transform:uppercase}th[role=button]{cursor:pointer}th[role=button]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}.late{color:var(--accent);font-weight:700}.absent{color:var(--muted);font-weight:700}@media(max-width:700px){body{padding:16px}.summary{gap:8px}.summary span{flex:1 1 140px}section{margin-top:18px}}@media print{body{padding:0;background:#fff;color:#000}.no-print{display:none!important}section{margin-top:12px;padding:0;border:0;overflow:visible}table{min-width:0}.summary span{break-inside:avoid}}</style></head><body><main><h1>${escapeReportHtml(title)}</h1><p>Rapport local Holbies Meet · ${escapeReportHtml(rows[0]?.date || new Date().toLocaleString('fr-FR'))}</p><div class="actions no-print"><button type="button" id="print-report">Télécharger en PDF</button></div><div class="summary"><span>À l'heure : ${counts["à l'heure"] || 0}</span><span>En retard : ${counts["en retard"] || 0}</span><span>En attente : ${counts["en attente"] || 0}</span><span>Absents : ${counts.absent || 0}</span></div><p class="sort-help no-print">Cliquez sur Participant, E-mail, Statut ou Arrivée pour trier. Un second clic inverse l’ordre.</p><section><table><thead><tr><th data-column="participant" data-sort-column="participant">Participant</th><th data-column="email" data-sort-column="email">E-mail</th><th data-column="status" data-sort-column="status">Statut</th><th data-column="arrival" data-sort-column="arrival">Arrivée</th></tr></thead><tbody>${tableRows}</tbody></table></section></main><script>document.getElementById('print-report').addEventListener('click',()=>window.print());const statusRank={'en retard':0,absent:1,'en attente':2,"à l'heure":3};document.querySelectorAll('th[data-sort-column]').forEach((header)=>{header.setAttribute('role','button');header.tabIndex=0;header.addEventListener('click',()=>sortRows(header));header.addEventListener('keydown',(event)=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();sortRows(header);}});});function sortRows(header){const column=header.dataset.sortColumn;const direction=header.dataset.sortDirection==='asc'?'desc':'asc';document.querySelectorAll('th[data-sort-column]').forEach((item)=>item.removeAttribute('aria-sort'));header.dataset.sortDirection=direction;header.setAttribute('aria-sort',direction==='asc'?'ascending':'descending');const cells=[...document.querySelectorAll('tbody tr')];cells.sort((left,right)=>{const leftValue=left.querySelector('[data-column="'+column+'"]')?.textContent.trim().toLocaleLowerCase('fr-FR')||'';const rightValue=right.querySelector('[data-column="'+column+'"]')?.textContent.trim().toLocaleLowerCase('fr-FR')||'';const comparison=column==='status'?(statusRank[leftValue]??99)-(statusRank[rightValue]??99):leftValue.localeCompare(rightValue,'fr',{numeric:true});return direction==='asc'?comparison:-comparison;});document.querySelector('tbody').replaceChildren(...cells);}</script></body></html>`;
-}
-
-function createLocalReportHtml(rows) {
-  return createLocalReportHtmlBase(rows)
-    .replace('table-layout:fixed', 'table-layout:auto')
-    .replace('th:nth-child(3){width:18%}th:nth-child(4){width:18%}', 'th:nth-child(3),th:nth-child(4){width:1%;white-space:nowrap}');
+  const tableRows = rows.map((row) => `<tr><td>${escapeReportHtml(row.name || `${row.firstName || ''} ${row.lastName || ''}`.trim())}</td><td>${escapeReportHtml(row.email || '')}</td><td class="${row.status === 'en retard' ? 'late' : row.status === 'absent' ? 'absent' : ''}">${escapeReportHtml(row.status)}</td><td>${escapeReportHtml(row.arrival || '-')}</td></tr>`).join('');
+  return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><title>${escapeReportHtml(title)}</title><style>:root{color-scheme:light dark;--bg:#fff7f8;--panel:#fff;--ink:#24101b;--muted:#704c59;--line:#efd8df;--accent:#d7194f}@media(prefers-color-scheme:dark){:root{--bg:#160b12;--panel:#24101b;--ink:#fff5f7;--muted:#d5b8c2;--line:#683345;--accent:#ff2d55}}*{box-sizing:border-box}body{margin:0;min-width:0;padding:clamp(18px,4vw,48px);overflow-x:hidden;background:var(--bg);color:var(--ink);font:16px Arial,sans-serif}main{width:min(100%,1100px);margin:auto}h1{margin:0 0 8px}p{color:var(--muted)}.summary{display:flex;gap:12px;flex-wrap:wrap}.summary span{padding:12px 16px;border:1px solid var(--line);border-top:3px solid var(--accent);background:var(--panel);border-radius:10px}section{margin-top:24px;padding:clamp(14px,3vw,20px);background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow-x:auto}table{width:100%;min-width:620px;border-collapse:collapse;table-layout:fixed}th,td{text-align:left;padding:12px 10px;border-bottom:1px solid var(--line);overflow-wrap:anywhere;vertical-align:top}th:nth-child(1){width:28%}th:nth-child(2){width:36%}th:nth-child(3){width:18%}th:nth-child(4){width:18%}th{color:var(--muted);font-size:12px;text-transform:uppercase}.late{color:var(--accent);font-weight:700}.absent{color:var(--muted);font-weight:700}@media(max-width:700px){body{padding:16px}.summary{gap:8px}.summary span{flex:1 1 140px}section{margin-top:18px}}</style></head><body><main><h1>${escapeReportHtml(title)}</h1><p>Rapport local Holbies Meet · ${escapeReportHtml(rows[0]?.date || new Date().toLocaleString('fr-FR'))}</p><div class="summary"><span>À l'heure : ${counts["à l'heure"] || 0}</span><span>En retard : ${counts["en retard"] || 0}</span><span>En attente : ${counts["en attente"] || 0}</span><span>Absents : ${counts.absent || 0}</span></div><section><table><thead><tr><th>Participant</th><th>Email</th><th>Statut</th><th>Arrivée</th></tr></thead><tbody>${tableRows}</tbody></table></section></main></body></html>`;
 }
 
 async function exportAttendanceToHtml() {
@@ -456,10 +450,8 @@ function clearAttendanceRows() {
 }
 
 function renderAttendanceRows(rows) {
-  const safeRows = Array.isArray(rows) ? rows : [];
-  currentAttendanceRows = safeRows;
-  participantList.replaceChildren();
-  const counts = safeRows.reduce((summary, row) => {
+  currentAttendanceRows = rows;
+  const counts = rows.reduce((summary, row) => {
     if (row.status === 'à l’heure') summary.onTime += 1;
     else if (row.status === 'en retard') summary.late += 1;
     else if (row.status === 'absent') summary.absent += 1;
@@ -470,21 +462,10 @@ function renderAttendanceRows(rows) {
   summaryLate.textContent = String(counts.late);
   summaryAbsent.textContent = String(counts.absent);
   summaryWaiting.textContent = String(counts.waiting);
-  attendanceSummary.hidden = safeRows.length === 0;
-  exportButton.disabled = safeRows.length === 0 || !exportConsent.checked;
-  htmlExportButton.hidden = safeRows.length === 0;
-  safeRows.forEach((row) => {
-    const item = document.createElement('li');
-    item.className = 'participant-item';
-    const name = document.createElement('span');
-    name.className = 'participant-name';
-    name.textContent = row.name || `${row.firstName || ''} ${row.lastName || ''}`.trim() || 'Participant inconnu';
-    const details = document.createElement('span');
-    details.className = 'participant-status';
-    details.textContent = row.email ? `${row.status} · ${row.email}` : (row.status || 'Statut inconnu');
-    item.append(name, details);
-    participantList.append(item);
-  });
+  attendanceSummary.hidden = rows.length === 0;
+  exportButton.disabled = rows.length === 0 || !exportConsent.checked;
+  htmlExportButton.hidden = rows.length === 0;
+
 }
 
 function renderLiveRows(rows) {
@@ -580,7 +561,10 @@ async function moveDriveFileToFolder(fileId, folderId, token) {
 }
 
 function prepareAttendanceView(event) {
-  clearAttendanceRows();
+  currentAttendanceRows = [];
+  attendanceSummary.hidden = true;
+  exportButton.disabled = true;
+  htmlExportButton.hidden = true;
   if (!getMeetingLink(event)) {
     setAttendanceState('unavailable', 'Aucun lien Google Meet pour cet événement.');
     return;
