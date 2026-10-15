@@ -32,7 +32,7 @@ test('counts exactly two minutes as late', () => {
 });
 
 test('renders a safe HTML report with late participants highlighted', () => {
-  const html = renderReportHtml({ mentorEmail: 'mentor@holbertonschool.com', participants: [{ name: '<Alice>', status: 'late', lateMinutes: 8 }, { name: 'Bob', status: 'on-time', lateMinutes: 0 }] });
+  const html = renderReportHtml({ mentorEmail: 'mentor@holbertonschool.com', participants: [{ name: '<Alice>', email: 'alice@holbertonstudents.com', joinedAt: '2026-10-13T09:08:00Z', status: 'late', lateMinutes: 8 }, { name: 'Bob', email: 'bob@holbertonstudents.com', joinedAt: '2026-10-13T09:00:00Z', status: 'on-time', lateMinutes: 0 }] });
   assert.match(html, /&lt;Alice&gt;/);
   assert.match(html, /class="late"/);
   assert.match(html, /prefers-color-scheme:dark/);
@@ -40,11 +40,21 @@ test('renders a safe HTML report with late participants highlighted', () => {
   assert.match(html, /Résumé des présences/);
   assert.match(html, /À l'heure : 1/);
   assert.match(html, /scope="col"/);
+  assert.match(html, /alice@holbertonstudents\.com/);
+  assert.match(html, /Arrivée/);
   assert.doesNotMatch(html, /<Alice>/);
 });
 
 test('accepts only a verified Google token from the allowed domain', async () => {
-  const fetchImpl = async () => ({ ok: true, json: async () => ({ email: 'mentor@holbertonschool.com', sub: 'subject-1' }) });
+  const fetchImpl = async () => ({ ok: true, json: async () => ({
+    email: 'mentor@holbertonschool.com',
+    sub: 'subject-1',
+    aud: 'test-client',
+    iss: 'https://accounts.google.com',
+    email_verified: true,
+    expires_in: '3600',
+    scope: 'https://www.googleapis.com/auth/meetings.space.readonly',
+  }) });
   assert.deepEqual(await verifyGoogleAccessToken('a-valid-token-with-enough-length', fetchImpl), { email: 'mentor@holbertonschool.com', subject: 'subject-1' });
 });
 
@@ -139,6 +149,21 @@ test('deduplicates ID and nominative aliases across live events', () => {
   applyMeetEvent(session, {
     type: 'google.workspace.meet.participant.v2.joined',
     participantSession: { email: 'pierre.cardin@holbertonstudents.com', displayName: 'Pierre Cardin', startTime: '2026-10-13T09:47:00Z' },
+  });
+  assert.equal(session.participants.length, 1);
+  assert.equal(session.participants[0].joinedAt, '2026-10-13T09:46:00Z');
+  assert.equal(session.participants[0].status, 'on-time');
+});
+
+test('deduplicates numbered nominative aliases across live events', () => {
+  const session = { scheduledStart: '2026-10-13T09:45:00Z', participants: [] };
+  applyMeetEvent(session, {
+    type: 'google.workspace.meet.participant.v2.joined',
+    participantSession: { email: 'benjamin.dereuck@holbertonstudents.com', displayName: 'Benjamin Dereuck', startTime: '2026-10-13T09:46:00Z' },
+  });
+  applyMeetEvent(session, {
+    type: 'google.workspace.meet.participant.v2.joined',
+    participantSession: { email: 'benjamin.dereuck.1@holbertonstudents.com', displayName: 'benjamin.dereuck.1@holbertonstudents.com', startTime: '2026-10-13T09:47:00Z' },
   });
   assert.equal(session.participants.length, 1);
   assert.equal(session.participants[0].joinedAt, '2026-10-13T09:46:00Z');
