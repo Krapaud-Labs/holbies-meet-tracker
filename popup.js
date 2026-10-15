@@ -178,6 +178,12 @@ function splitName(name) {
   return { firstName: parts.shift() || '', lastName: parts.join(' ') };
 }
 
+function nameFromHolbertonEmail(email) {
+  const localPart = String(email || '').split('@')[0];
+  if (!localPart || /^\d{4,5}$/.test(localPart)) return '';
+  return localPart.replace(/[._-]+/g, ' ');
+}
+
 function exportValues() {
   return [['Prénom', 'Nom', 'Date', 'Réunion', 'Arrivée', 'Départ', 'Statut'], ...currentAttendanceRows.map((row) => [row.firstName, row.lastName, row.date, row.meeting, row.arrival, row.departure, row.status])];
 }
@@ -402,12 +408,7 @@ async function detectOpenMeet() {
 }
 
 function normalizePersonName(name) {
-  return String(name || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .trim()
-    .toLocaleLowerCase('fr-FR')
-    .replace(/\s+/g, ' ');
+  return MeetAttendance.normalizePersonName(name);
 }
 
 function findAgendaEventForOpenMeet(meetingCode, meetTitle) {
@@ -548,8 +549,11 @@ async function analyzeMeeting(event) {
       .map((attendee) => {
         const email = normalizeEmail(attendee.email);
         const attendeeName = attendee.displayName || attendee.email;
-        const match = byEmail.get(email) || byName.get(normalizePersonName(attendeeName));
-        const name = splitName(attendee.displayName || attendee.email);
+        const emailName = nameFromHolbertonEmail(email);
+        const match = byEmail.get(email)
+          || byName.get(normalizePersonName(attendeeName))
+          || byName.get(normalizePersonName(emailName));
+        const name = splitName(match?.name || attendee.displayName || attendee.email);
         return match || {
           ...name,
           name: attendee.displayName || attendee.email,
@@ -561,7 +565,7 @@ async function analyzeMeeting(event) {
       });
     const invitedEmails = new Set(invitedRows.map((row) => row.email));
     const unidentifiedRows = participantRows.filter((row) => row && (!row.email || !invitedEmails.has(row.email)));
-    const rows = [...invitedRows, ...unidentifiedRows].map((row) => ({
+    const rows = MeetAttendance.mergeAttendanceRows([...invitedRows, ...unidentifiedRows]).map((row) => ({
       ...row,
       date: formatEventDate(event),
       meeting: event.summary || 'Réunion Google Meet',

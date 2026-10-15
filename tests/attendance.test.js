@@ -1,5 +1,5 @@
 const assert = require('node:assert/strict');
-const { calculateAttendance, getSessionWindow } = require('../attendance.js');
+const { calculateAttendance, getSessionWindow, getAttendanceIdentityKey, mergeAttendanceRows } = require('../attendance.js');
 
 const eventStart = '2026-10-13T09:00:00.000Z';
 
@@ -10,6 +10,13 @@ assert.deepEqual(getSessionWindow([
   firstJoin: Date.parse('2026-10-13T09:04:00.000Z'),
   lastLeave: Date.parse('2026-10-13T09:50:00.000Z'),
 });
+
+assert.equal(getAttendanceIdentityKey({ name: 'Pierre Cardin', email: '14000@holbertonstudents.com' }), 'name:pierre cardin');
+assert.equal(getAttendanceIdentityKey({ name: '14000@holbertonstudents.com', email: '14000@holbertonstudents.com' }), 'student-id:14000');
+assert.deepEqual(mergeAttendanceRows([
+  { name: 'Pierre Cardin', email: 'pierre.cardin@holbertonstudents.com', status: 'absent' },
+  { name: 'Pierre Cardin', email: '14000@holbertonstudents.com', status: 'on-time' },
+]), [{ name: 'Pierre Cardin', email: '14000@holbertonstudents.com', status: 'on-time' }]);
 
 assert.equal(calculateAttendance({ user: { signedinUser: { displayName: 'Ada' } } }, [
   { startTime: '2026-10-13T09:01:00.000Z' },
