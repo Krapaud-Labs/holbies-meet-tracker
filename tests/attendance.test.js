@@ -22,6 +22,12 @@ assert.deepEqual(mergeAttendanceRows([
   { name: 'Pierre Cardin', email: 'pierre.cardin@holbertonstudents.com', status: 'on-time' },
 ]), [{ name: 'Pierre Cardin', email: 'pierre.cardin@holbertonstudents.com', status: 'on-time' }]);
 assert.ok(getAttendanceIdentityKeys({ name: 'Pierre Cardin', email: 'pierre.cardin@holbertonstudents.com' }).includes('name:pierre cardin'));
+const duplicateAliasRows = mergeAttendanceRows([
+  { name: 'Pierre Cardin', email: 'pierre.cardin@holbertonstudents.com', status: 'en attente' },
+  { name: 'PIERRE CARDIN', email: '14000@holbertonstudents.com', status: 'à l’heure' },
+]);
+assert.equal(duplicateAliasRows.length, 1);
+assert.equal(duplicateAliasRows[0].email, 'pierre.cardin@holbertonstudents.com');
 
 assert.equal(calculateAttendance({ user: { signedinUser: { displayName: 'Ada' } } }, [
   { startTime: '2026-10-13T09:01:00.000Z' },

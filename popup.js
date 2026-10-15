@@ -741,8 +741,12 @@ async function analyzeMeeting(event) {
       };
     }));
 
-    const byEmail = new Map(participantRows.filter(Boolean).filter((row) => row.email).map((row) => [row.email, row]));
-    const byName = new Map(participantRows.filter(Boolean).map((row) => [normalizePersonName(row.name), row]));
+    // Fusionner d'abord les lignes Meet brutes. Une même personne peut être
+    // exposée plusieurs fois par conferenceRecords (alias e-mail, reconnexion
+    // ou ressource participant différente) avant le rapprochement Agenda.
+    const canonicalParticipantRows = MeetAttendance.mergeAttendanceRows(participantRows.filter(Boolean));
+    const byEmail = new Map(canonicalParticipantRows.filter((row) => row.email).map((row) => [row.email, row]));
+    const byName = new Map(canonicalParticipantRows.map((row) => [normalizePersonName(row.name), row]));
     const invitedRows = (event.attendees || [])
       .filter((attendee) => normalizeEmail(attendee.email))
       .map((attendee) => {
