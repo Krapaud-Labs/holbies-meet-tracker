@@ -566,7 +566,10 @@ async function analyzeMeeting(event) {
           || byName.get(normalizePersonName(attendeeName))
           || byName.get(normalizePersonName(emailName));
         const name = splitName(match?.name || attendee.displayName || attendee.email);
-        return match || {
+        if (match) {
+          return { ...match, email: match.email || email };
+        }
+        return {
           ...name,
           name: attendee.displayName || attendee.email,
           email,
