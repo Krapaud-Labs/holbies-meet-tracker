@@ -841,7 +841,7 @@ function connectGoogleAccount() {
 
 function restoreGoogleSession() {
   withTimeout(chrome.identity.getAuthToken({ interactive: false }), AUTH_TIMEOUT_MS, 'google-auth-timeout')
-    .then((session) => finishGoogleConnection(normalizeAuthSession(session), 'Compte Google déjà connecté.'))
+    .then((session) => finishGoogleConnection(normalizeAuthSession(session), ''))
     .catch(() => {
       // Aucun token en cache : l'utilisateur verra l'action de connexion.
     });
