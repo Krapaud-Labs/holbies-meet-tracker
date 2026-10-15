@@ -55,14 +55,16 @@
             <h2 id="calendar-title">Votre agenda</h2>
           </div>
           <div class="card-actions">
-            <button class="calendar-menu-button" id="calendar-settings-button" type="button" aria-label="Configurer le bloc Agenda" aria-controls="calendar-menu" aria-expanded="false">⚙</button>
+            <button class="calendar-menu-button icon-button" id="calendar-settings-button" type="button" aria-label="Configurer le bloc Agenda" aria-controls="calendar-menu" aria-expanded="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19.43 12.98c.04-.32.07-.65.07-.98s-.02-.66-.07-.98l2.11-1.65-2-3.46-2.49 1a7.2 7.2 0 0 0-1.7-.98L15 3h-4l-.35 2.93c-.61.25-1.18.58-1.7.98l-2.49-1-2 3.46 2.11 1.65c-.04.32-.08.65-.08.98s.03.66.08.98l-2.11 1.65 2 3.46 2.49-1c.52.4 1.09.73 1.7.98L11 21h4l.35-2.93a7.2 7.2 0 0 0 1.7-.98l2.49 1 2-3.46-2.11-1.65ZM13 15.5A3.5 3.5 0 1 1 13 8a3.5 3.5 0 0 1 0 7.5Z"/></svg>
+            </button>
             <button class="calendar-menu-button" id="calendar-refresh-button" type="button">Rafraîchir</button>
           </div>
         </div>
         <p class="calendar-status" id="calendar-status" role="status" aria-live="polite" aria-atomic="true" aria-busy="false">Connectez-vous pour charger vos événements.</p>
-        <div class="calendar-menu" id="calendar-menu" hidden>
+        <div class="calendar-menu" id="calendar-menu" role="dialog" aria-modal="true" aria-labelledby="calendar-menu-title" hidden>
           <fieldset class="calendar-picker" id="calendar-picker">
-            <legend>Agendas suivis</legend>
+            <legend id="calendar-menu-title">Agendas suivis</legend>
             <div class="calendar-picker-list" id="calendar-picker-list"></div>
           </fieldset>
         </div>
@@ -105,6 +107,7 @@
     </main>
     <script src="attendance.js"></script>
     <script src="calendar-filter.js"></script>
+    <script src="config.js"></script>
     <script src="popup.js"></script>
   </body>
 </html>
