@@ -231,6 +231,7 @@ async function saveSelectedCalendarIds(ids) {
 }
 
 function renderCalendarPicker(calendars, selectedIds) {
+  const keepMenuOpen = !calendarMenu.hidden;
   calendarCatalog = calendars;
   calendarPickerList.replaceChildren();
   calendars.forEach((calendar) => {
@@ -250,7 +251,7 @@ function renderCalendarPicker(calendars, selectedIds) {
     label.append(checkbox, name);
     calendarPickerList.append(label);
   });
-  calendarMenu.hidden = calendars.length === 0;
+  setCalendarPickerOpen(keepMenuOpen);
 }
 
 function setCalendarPickerOpen(isOpen) {
