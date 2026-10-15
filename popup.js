@@ -765,9 +765,10 @@ async function analyzeMeeting(event) {
           departure: '',
         };
       });
-    const invitedEmails = new Set(invitedRows.map((row) => row.email));
-    const unidentifiedRows = participantRows.filter((row) => row && (!row.email || !invitedEmails.has(row.email)));
-    const rows = MeetAttendance.mergeAttendanceRows([...invitedRows, ...unidentifiedRows]).map((row) => ({
+    // Le roster Agenda est la source de vérité : les lignes Meet non
+    // rapprochées sont des invités externes ou des alias incomplets et ne
+    // doivent pas gonfler les compteurs étudiants.
+    const rows = MeetAttendance.mergeAttendanceRows(invitedRows).map((row) => ({
       ...row,
       date: formatEventDate(event),
       meeting: event.summary || 'Réunion Google Meet',
