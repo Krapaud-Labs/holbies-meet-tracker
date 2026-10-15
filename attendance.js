@@ -1,6 +1,42 @@
 (function attachAttendance(globalScope) {
   const LATE_TOLERANCE_MS = 2 * 60 * 1000;
 
+  function normalizePersonName(name) {
+    return String(name || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim()
+      .toLocaleLowerCase('fr-FR')
+      .replace(/\s+/g, ' ');
+  }
+
+  function getAttendanceIdentityKey(row) {
+    const name = normalizePersonName(row?.name);
+    if (name && !name.includes('@') && name !== 'participant inconnu') return `name:${name}`;
+
+    const email = String(row?.email || '').trim().toLocaleLowerCase('fr-FR');
+    const numericId = email.match(/^(\d{4,5})@holbertonstudents\.com$/)?.[1];
+    if (numericId) return `student-id:${numericId}`;
+    return email ? `email:${email}` : `row:${name}`;
+  }
+
+  function mergeAttendanceRows(rows) {
+    const merged = new Map();
+    const priority = { absent: 0, waiting: 1, 'identity-to-check': 2, late: 3, 'on-time': 4 };
+
+    for (const row of Array.isArray(rows) ? rows : []) {
+      const key = getAttendanceIdentityKey(row);
+      const current = merged.get(key);
+      if (!current || (priority[row.status] || 0) > (priority[current.status] || 0)) {
+        merged.set(key, row);
+      } else if (!current.email && row.email) {
+        merged.set(key, { ...current, email: row.email });
+      }
+    }
+
+    return [...merged.values()];
+  }
+
   function getParticipantIdentity(participant) {
     // Google Meet returns the union fields at participant.signedinUser,
     // participant.anonymousUser or participant.phoneUser.
@@ -61,7 +97,7 @@
     return { ...identity, status, firstJoin: window.firstJoin, lastLeave: window.lastLeave };
   }
 
-  const api = { calculateAttendance, getParticipantIdentity, getSessionWindow };
+  const api = { calculateAttendance, getParticipantIdentity, getSessionWindow, getAttendanceIdentityKey, mergeAttendanceRows, normalizePersonName };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   globalScope.MeetAttendance = api;
 })(typeof globalThis === 'undefined' ? window : globalThis);
