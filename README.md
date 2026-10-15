@@ -1,5 +1,9 @@
 # Holbies Meet Tracker
 
+La fusion d'identités est cohérente entre la popup et le backend live : les adresses nominatives suffixées (`prenom.nom.1@holbertonstudents.com`) sont rapprochées de leur identité nominative de base.
+
+Le backend refuse désormais les profils OAuth incomplets : audience, issuer Google, e-mail vérifié, expiration et scope Meet doivent être présents et valides. En production, `GOOGLE_CLIENT_ID` doit être configuré pour verrouiller l'audience attendue.
+
 La déduplication fusionne aussi les alias nominatifs suffixés par un numéro, par exemple `prenom.nom.1@holbertonstudents.com`, avec l'identité nominative correspondante. Cela évite de compter deux fois un étudiant lorsqu'une reconnexion ou une variante Google crée ce type d'adresse.
 
 Extension Chrome Manifest V3 pour préparer le suivi de présence des réunions Google Meet.
@@ -45,5 +49,7 @@ Voir [la documentation backend](backend/README.md) pour lancer les tests et le s
 Le projet n'utilise pas encore de gestionnaire de paquets ni de build : les fichiers HTML et CSS sont chargés directement par Chrome.
 
 Dans la popup, le bloc Présences affiche uniquement les quatre compteurs du résumé. Les détails restent disponibles dans les exports HTML, CSV et Google Sheets.
+
+Le rapport HTML permet de trier les participants par nom, e-mail, statut ou heure d’arrivée. Les statuts sont classés avec les retards puis les absences en tête, et l’action « Télécharger en PDF » ouvre l’impression système avec une mise en page adaptée.
 
 Les rapports HTML local et live utilisent le même résumé chiffré, un tableau lisible sur mobile avec retour à la ligne des emails, et le thème clair/sombre du système. Le rapport live traduit aussi les statuts techniques en libellés français.
