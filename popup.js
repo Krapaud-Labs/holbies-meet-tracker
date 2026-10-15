@@ -749,7 +749,7 @@ async function analyzeMeeting(event) {
   }
 }
 
-function renderEvents(events) {
+function renderEvents(events, nowMs = Date.now()) {
   eventList.replaceChildren();
 
   events.forEach((event) => {
@@ -771,6 +771,13 @@ function renderEvents(events) {
     date.className = 'event-date';
     date.textContent = formatEventDate(event);
 
+    const status = document.createElement('span');
+    status.className = 'event-status';
+    const eventStatus = HolbiesCalendar.getEventStatus(event, nowMs);
+    status.dataset.status = eventStatus.toLowerCase();
+    status.textContent = eventStatus;
+    status.setAttribute('aria-label', `Statut : ${eventStatus}`);
+
     const actions = document.createElement('div');
     actions.className = 'event-actions';
 
@@ -787,7 +794,7 @@ function renderEvents(events) {
       actions.append(analyzeButton);
     }
 
-    item.append(title, date, actions);
+    item.append(title, date, status, actions);
     eventList.append(item);
   });
 }
@@ -867,7 +874,7 @@ async function loadCalendarEvents(token) {
 
   const events = HolbiesCalendar.filterVisibleAgendaEvents(calendarItems, now.getTime());
   calendarEvents = events;
-  renderEvents(events);
+  renderEvents(events, now.getTime());
 
   if (events.length === 0) {
     setCalendarState('empty', 'Aucun événement récent ou prochain.');
