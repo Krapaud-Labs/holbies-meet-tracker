@@ -456,7 +456,7 @@ function clearAttendanceRows() {
 }
 
 function renderAttendanceRows(rows) {
-  const safeRows = Array.isArray(rows) ? rows : [];
+  const safeRows = MeetAttendance.mergeAttendanceRows(Array.isArray(rows) ? rows : []);
   currentAttendanceRows = safeRows;
   participantList.replaceChildren();
   const counts = safeRows.reduce((summary, row) => {

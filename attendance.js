@@ -48,7 +48,7 @@
       let index = merged.findIndex((item) => getAttendanceIdentityKeys(item).some((key) => getAttendanceIdentityKeys(candidate).includes(key)));
       while (index >= 0) {
         const current = merged[index];
-        candidate = (priority[row.status] || 0) > (priority[current.status] || 0)
+      candidate = (priority[row.status] ?? -1) > (priority[current.status] ?? -1)
           ? { ...current, ...row, email: row.email || current.email, name: row.name || current.name }
           : { ...row, ...current, email: current.email || row.email, name: current.name || row.name };
         merged[index] = candidate;

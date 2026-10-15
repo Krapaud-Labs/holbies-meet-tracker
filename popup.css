@@ -74,7 +74,17 @@ a {
   display: contents;
 }
 
-@media (max-width: 560px) {
+@media (max-width: 719px) {
+  html {
+    width: 100%;
+  }
+
+  body {
+    width: 100%;
+  }
+}
+
+@media (max-width: 680px) {
   .dashboard-grid {
     grid-template-columns: 1fr;
   }
@@ -541,6 +551,12 @@ h1 span {
   font-size: 10px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.participant-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .participant-status {
