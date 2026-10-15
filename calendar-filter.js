@@ -17,9 +17,27 @@
     return Number.isFinite(timestamp) ? timestamp : Number.MAX_SAFE_INTEGER;
   }
 
-  function isVisibleAgendaEvent(event, nowMs = Date.now()) {
+  function calendarDayKey(timestamp) {
+    const date = new Date(timestamp);
+    if (!Number.isFinite(date.getTime())) return null;
+    return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+  }
+
+  function isEventOnDay(event, nowMs = Date.now()) {
+    const startMs = getEventStartMs(event);
+    return calendarDayKey(startMs) === calendarDayKey(nowMs);
+  }
+
+  function getEventStatus(event, nowMs = Date.now()) {
+    const startMs = getEventStartMs(event);
     const endMs = getEventEndMs(event);
-    return endMs === null || endMs >= nowMs - HOUR_MS;
+    if (endMs !== null && nowMs >= endMs) return 'Terminé';
+    if (startMs !== Number.MAX_SAFE_INTEGER && nowMs >= startMs) return 'En cours';
+    return 'Bientôt';
+  }
+
+  function isVisibleAgendaEvent(event, nowMs = Date.now()) {
+    return isEventOnDay(event, nowMs);
   }
 
   function filterVisibleAgendaEvents(events, nowMs = Date.now()) {
@@ -28,5 +46,5 @@
       .sort((left, right) => getEventStartMs(left) - getEventStartMs(right));
   }
 
-  return { HOUR_MS, getEventEndMs, getEventStartMs, isVisibleAgendaEvent, filterVisibleAgendaEvents };
+  return { HOUR_MS, getEventEndMs, getEventStartMs, getEventStatus, isEventOnDay, isVisibleAgendaEvent, filterVisibleAgendaEvents };
 }));

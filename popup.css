@@ -361,6 +361,29 @@ h1 span {
   display: block;
 }
 
+.event-status {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 2px 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.event-status[data-status="en cours"] {
+  border-color: var(--cherry);
+  color: var(--cherry);
+}
+
+.event-status[data-status="bientôt"] {
+  border-color: var(--rose-soft);
+  color: var(--rose-soft);
+}
+
 .event-actions {
   display: flex;
   justify-content: flex-end;
