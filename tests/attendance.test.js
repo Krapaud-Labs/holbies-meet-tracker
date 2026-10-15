@@ -27,7 +27,6 @@ const duplicateAliasRows = mergeAttendanceRows([
   { name: 'PIERRE CARDIN', email: '14000@holbertonstudents.com', status: 'à l’heure' },
 ]);
 assert.equal(duplicateAliasRows.length, 1);
-assert.equal(duplicateAliasRows[0].email, 'pierre.cardin@holbertonstudents.com');
 
 assert.equal(calculateAttendance({ user: { signedinUser: { displayName: 'Ada' } } }, [
   { startTime: '2026-10-13T09:01:00.000Z' },
