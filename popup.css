@@ -30,18 +30,6 @@ body {
   background: var(--ink);
 }
 
-/* Chrome sizes extension popups from their intrinsic content width. Keep a
-   useful default width and only allow it to shrink on genuinely small
-   viewports. Without this explicit width, the popup can collapse to the
-   narrowest text column when opened over Meet. */
-html {
-  max-width: 100vw;
-}
-
-body {
-  width: 100%;
-}
-
 body {
   color: var(--paper);
   font-size: 14px;
@@ -67,16 +55,6 @@ a {
   background:
     radial-gradient(circle at 100% 0, rgba(255, 45, 85, 0.18), transparent 34%),
     var(--ink);
-}
-
-@media (max-width: 719px) {
-  html {
-    width: 100%;
-  }
-
-  .popup-shell {
-    max-width: none;
-  }
 }
 
 .dashboard-grid {
