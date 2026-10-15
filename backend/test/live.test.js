@@ -31,11 +31,14 @@ test('keeps the exact tolerance boundary stable', () => {
 });
 
 test('renders a safe HTML report with late participants highlighted', () => {
-  const html = renderReportHtml({ mentorEmail: 'mentor@holbertonschool.com', participants: [{ name: '<Alice>', status: 'late', lateMinutes: 8 }] });
+  const html = renderReportHtml({ mentorEmail: 'mentor@holbertonschool.com', participants: [{ name: '<Alice>', status: 'late', lateMinutes: 8 }, { name: 'Bob', status: 'on-time', lateMinutes: 0 }] });
   assert.match(html, /&lt;Alice&gt;/);
   assert.match(html, /class="late"/);
   assert.match(html, /prefers-color-scheme:dark/);
   assert.match(html, /color-scheme/);
+  assert.match(html, /Résumé des présences/);
+  assert.match(html, /À l'heure : 1/);
+  assert.match(html, /scope="col"/);
   assert.doesNotMatch(html, /<Alice>/);
 });
 
