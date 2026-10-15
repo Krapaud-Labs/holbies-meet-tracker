@@ -1,5 +1,5 @@
 const assert = require('node:assert/strict');
-const { calculateAttendance, getSessionWindow, getAttendanceIdentityKey, mergeAttendanceRows } = require('../attendance.js');
+const { calculateAttendance, getSessionWindow, getAttendanceIdentityKey, getAttendanceIdentityKeys, mergeAttendanceRows } = require('../attendance.js');
 
 const eventStart = '2026-10-13T09:00:00.000Z';
 
@@ -17,6 +17,11 @@ assert.deepEqual(mergeAttendanceRows([
   { name: 'Pierre Cardin', email: 'pierre.cardin@holbertonstudents.com', status: 'absent' },
   { name: 'Pierre Cardin', email: '14000@holbertonstudents.com', status: 'on-time' },
 ]), [{ name: 'Pierre Cardin', email: '14000@holbertonstudents.com', status: 'on-time' }]);
+assert.deepEqual(mergeAttendanceRows([
+  { name: 'Pierre Cardin', email: '14000@holbertonstudents.com', status: 'absent' },
+  { name: 'Pierre Cardin', email: 'pierre.cardin@holbertonstudents.com', status: 'on-time' },
+]), [{ name: 'Pierre Cardin', email: 'pierre.cardin@holbertonstudents.com', status: 'on-time' }]);
+assert.ok(getAttendanceIdentityKeys({ name: 'Pierre Cardin', email: 'pierre.cardin@holbertonstudents.com' }).includes('name:pierre cardin'));
 
 assert.equal(calculateAttendance({ user: { signedinUser: { displayName: 'Ada' } } }, [
   { startTime: '2026-10-13T09:01:00.000Z' },

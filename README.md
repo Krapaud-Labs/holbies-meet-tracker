@@ -42,4 +42,6 @@ Le projet n'utilise pas encore de gestionnaire de paquets ni de build : les fich
 
 Dans la popup, le bloc Présences affiche uniquement les quatre compteurs du résumé. Les détails restent disponibles dans les exports HTML, CSV et Google Sheets.
 
+Le compteur des absents est calculé après fusion des identités, et non sur le nombre brut de lignes. La fusion utilise les clés disponibles (e-mail exact, identifiant numérique Holberton, nom dérivé et nom Meet) afin qu’un même étudiant connecté avec plusieurs adresses ne soit compté qu’une seule fois.
+
 Les rapports HTML local et live utilisent le même résumé chiffré, un tableau lisible sur mobile avec retour à la ligne des emails, et le thème clair/sombre du système. Le rapport live traduit aussi les statuts techniques en libellés français.
