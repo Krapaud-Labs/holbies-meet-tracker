@@ -119,7 +119,13 @@ function applyMeetEvent(session, event) {
   const participant = event.participantSession;
   const name = participant.displayName || participant.name || 'Participant inconnu';
   const email = participant.email?.toLowerCase?.() || null;
-  const existing = session.participants.find((item) => (email && item.email?.toLowerCase?.() === email) || item.name === name);
+  const incomingKeys = new Set(identityKeys({ name, email }));
+  const findMatchingParticipant = () => session.participants.find((item) =>
+    identityKeys(item).some((key) => incomingKeys.has(key)));
+  // Le flux Workspace Events doit utiliser la même fusion canonique que les
+  // snapshots HTTP, sinon un alias numérique puis nominatif recrée une ligne.
+  session.participants = mergeIdentityRows(session.participants);
+  const existing = findMatchingParticipant();
   const joinedAt = participant.startTime || event.eventTime || new Date().toISOString();
   if (event.type.endsWith('.left')) {
     if (existing) {
@@ -134,7 +140,9 @@ function applyMeetEvent(session, event) {
   const status = calculateStatus(next.joinedAt, session.scheduledStart);
   next.lateMinutes = status.lateMinutes;
   next.status = status.status;
-  if (!existing) session.participants.push(next);
+  session.participants = mergeIdentityRows(existing
+    ? session.participants.map((item) => (item === existing ? next : item))
+    : [...session.participants, next]);
   return session;
 }
 

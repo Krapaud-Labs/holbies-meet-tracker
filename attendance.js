@@ -36,25 +36,26 @@
 
   function mergeAttendanceRows(rows) {
     const merged = [];
-    const priority = { absent: 0, waiting: 1, 'identity-to-check': 2, late: 3, 'on-time': 4 };
-
-    const indexes = new Map();
-    for (const row of Array.isArray(rows) ? rows : []) {
-      const keys = getAttendanceIdentityKeys(row);
-      const currentKey = keys.find((key) => indexes.has(key));
-      const current = currentKey ? merged[indexes.get(currentKey)] : null;
-      if (!current) {
-        const index = merged.length;
-        merged.push(row);
-        keys.forEach((key) => indexes.set(key, index));
-      } else {
-        const index = indexes.get(currentKey);
-        const next = (priority[row.status] || 0) > (priority[current.status] || 0)
-          ? { ...row, email: row.email || current.email }
-          : (!current.email && row.email ? { ...current, email: row.email } : current);
-        merged[index] = next;
-        getAttendanceIdentityKeys(next).forEach((key) => indexes.set(key, index));
+    const priority = { absent: 0, 'absent': 0, waiting: 1, 'en attente': 1, 'identity-to-check': 2, inconnu: 2, late: 3, 'en retard': 3, 'on-time': 4, "à l'heure": 4, 'à l’heure': 4 };
+    for (let row of Array.isArray(rows) ? rows : []) {
+      const email = String(row?.email || '').trim().toLocaleLowerCase('fr-FR');
+      if (email.endsWith('@resource.calendar.google.com')) continue;
+      let candidate = row;
+      let index = merged.findIndex((item) => getAttendanceIdentityKeys(item).some((key) => getAttendanceIdentityKeys(candidate).includes(key)));
+      while (index >= 0) {
+        const current = merged[index];
+        candidate = (priority[row.status] || 0) > (priority[current.status] || 0)
+          ? { ...current, ...row, email: row.email || current.email, name: row.name || current.name }
+          : { ...row, ...current, email: current.email || row.email, name: current.name || row.name };
+        merged[index] = candidate;
+        const duplicateIndex = merged.findIndex((item, itemIndex) => itemIndex !== index
+          && getAttendanceIdentityKeys(item).some((key) => getAttendanceIdentityKeys(candidate).includes(key)));
+        if (duplicateIndex < 0) break;
+        const duplicate = merged.splice(duplicateIndex, 1)[0];
+        row = { ...candidate, ...duplicate, email: candidate.email || duplicate.email, name: candidate.name || duplicate.name };
+        index = merged.findIndex((item) => getAttendanceIdentityKeys(item).some((key) => getAttendanceIdentityKeys(row).includes(key)));
       }
+      if (index < 0) merged.push(row);
     }
 
     return merged;

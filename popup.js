@@ -488,7 +488,7 @@ function renderAttendanceRows(rows) {
 }
 
 function renderLiveRows(rows) {
-  const safeRows = Array.isArray(rows) ? rows : [];
+  const safeRows = MeetAttendance.mergeAttendanceRows(Array.isArray(rows) ? rows : []);
   renderAttendanceRows(safeRows);
   setAttendanceState(safeRows.length ? 'success' : 'empty', safeRows.length
     ? `${safeRows.length} participant${safeRows.length > 1 ? 's' : ''} trouvé${safeRows.length > 1 ? 's' : ''}.`
@@ -741,8 +741,12 @@ async function analyzeMeeting(event) {
       };
     }));
 
-    const byEmail = new Map(participantRows.filter(Boolean).filter((row) => row.email).map((row) => [row.email, row]));
-    const byName = new Map(participantRows.filter(Boolean).map((row) => [normalizePersonName(row.name), row]));
+    // Fusionner d'abord les lignes Meet brutes. Une même personne peut être
+    // exposée plusieurs fois par conferenceRecords (alias e-mail, reconnexion
+    // ou ressource participant différente) avant le rapprochement Agenda.
+    const canonicalParticipantRows = MeetAttendance.mergeAttendanceRows(participantRows.filter(Boolean));
+    const byEmail = new Map(canonicalParticipantRows.filter((row) => row.email).map((row) => [row.email, row]));
+    const byName = new Map(canonicalParticipantRows.map((row) => [normalizePersonName(row.name), row]));
     const invitedRows = (event.attendees || [])
       .filter((attendee) => normalizeEmail(attendee.email))
       .map((attendee) => {
@@ -765,9 +769,10 @@ async function analyzeMeeting(event) {
           departure: '',
         };
       });
-    const invitedEmails = new Set(invitedRows.map((row) => row.email));
-    const unidentifiedRows = participantRows.filter((row) => row && (!row.email || !invitedEmails.has(row.email)));
-    const rows = MeetAttendance.mergeAttendanceRows([...invitedRows, ...unidentifiedRows]).map((row) => ({
+    // Le roster Agenda est la source de vérité : les lignes Meet non
+    // rapprochées sont des invités externes ou des alias incomplets et ne
+    // doivent pas gonfler les compteurs étudiants.
+    const rows = MeetAttendance.mergeAttendanceRows(invitedRows).map((row) => ({
       ...row,
       date: formatEventDate(event),
       meeting: event.summary || 'Réunion Google Meet',
