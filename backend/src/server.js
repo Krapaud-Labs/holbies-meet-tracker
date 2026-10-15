@@ -1,13 +1,48 @@
 import http from 'node:http';
 import { randomUUID } from 'node:crypto';
+import { WebSocketServer } from 'ws';
 import { createDatabase } from './database.js';
-import { applyMeetEvent, applyParticipantSnapshot, createLiveStore, decodeWorkspaceEvent, getParticipantStatuses, mergeIdentityRows, renderReportHtml, verifyEventsSecret, verifyGoogleAccessToken } from './live.js';
+import { applyMeetEvent, applyParticipantSnapshot, authenticateWebSocket, createLiveStore, decodeWorkspaceEvent, getParticipantStatuses, mergeIdentityRows, renderReportHtml, verifyEventsSecret, verifyGoogleAccessToken } from './live.js';
 
 const port = Number(process.env.PORT || 8080);
 const maxBodyBytes = Number(process.env.MAX_BODY_BYTES || 256 * 1024);
 const allowedExtensionOrigin = process.env.ALLOWED_EXTENSION_ORIGIN || 'chrome-extension://jilidimjjdkgdggfkackomkmjjldlpaf';
 const store = createLiveStore();
 const database = createDatabase();
+const websocketServer = new WebSocketServer({
+  noServer: true,
+  handleProtocols(protocols) {
+    return protocols.has('holbies-live-v1') ? 'holbies-live-v1' : false;
+  },
+});
+const websocketClients = new Map();
+const maxWebSocketClientsPerSession = Number(process.env.MAX_WEBSOCKET_CLIENTS_PER_SESSION || 20);
+
+function sessionSnapshot(session) {
+  return { ...session, participantStatuses: getParticipantStatuses(session) };
+}
+
+function broadcastSession(session, type = 'session.updated') {
+  const clients = websocketClients.get(session.id);
+  if (!clients) return;
+  const message = JSON.stringify({ type, session: sessionSnapshot(session) });
+  for (const client of clients) {
+    if (client.readyState === 1) client.send(message);
+    if (type === 'session.ended' && client.readyState === 1) client.close(1000, 'session-ended');
+  }
+}
+
+function subscribeWebSocket(sessionId, socket) {
+  const clients = websocketClients.get(sessionId) || new Set();
+  if (clients.size >= maxWebSocketClientsPerSession) return false;
+  clients.add(socket);
+  websocketClients.set(sessionId, clients);
+  socket.once('close', () => {
+    clients.delete(socket);
+    if (clients.size === 0) websocketClients.delete(sessionId);
+  });
+  return true;
+}
 
 function bearerToken(request) {
   return request.headers.authorization?.match(/^Bearer\s+(.+)$/i)?.[1] || null;
@@ -97,6 +132,7 @@ const server = http.createServer(async (request, response) => {
       };
       store.upsert(session);
       if (database) await database.saveSession(session);
+      broadcastSession(session, 'session.created');
       json(response, 201, session);
     } catch (error) {
       json(response, error.statusCode || 400, { error: error.message });
@@ -125,6 +161,8 @@ const server = http.createServer(async (request, response) => {
       else {
         const body = await readBody(request);
         applyParticipantSnapshot(session, body.participants);
+        if (database) await database.saveSession(session);
+        broadcastSession(session);
         json(response, 200, session);
       }
     } catch (error) {
@@ -143,6 +181,7 @@ const server = http.createServer(async (request, response) => {
     else {
       session.endedAt = new Date().toISOString();
       if (database) await database.saveSession(session);
+      broadcastSession(session, 'session.ended');
       json(response, 200, session);
     }
     return;
@@ -181,6 +220,7 @@ const server = http.createServer(async (request, response) => {
       }
       applyMeetEvent(session, event);
       if (database) await database.saveParticipantEvent(session.id, event.participantSession, event.type.endsWith('.left') ? 'left' : 'joined', event.eventTime || new Date().toISOString());
+      broadcastSession(session);
       json(response, 202, { accepted: true, processed: true, sessionId: session.id });
     } catch (error) {
       json(response, 400, { error: error.message });
@@ -190,6 +230,48 @@ const server = http.createServer(async (request, response) => {
 
   json(response, 404, { error: 'not-found' });
 });
+
+server.on('upgrade', async (request, socket, head) => {
+  const url = new URL(request.url, `http://${request.headers.host || 'localhost'}`);
+  const match = url.pathname.match(/^\/api\/v1\/live\/sessions\/([^/]+)\/stream$/);
+  const session = match ? store.get(match[1]) : null;
+  const mentor = match ? await authenticateWebSocket(request) : null;
+  if (!match || !session || !mentor || session.mentorEmail !== mentor.email || !String(request.headers['sec-websocket-protocol'] || '').split(',').some((protocol) => protocol.trim() === 'holbies-live-v1')) {
+    socket.write('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n');
+    socket.destroy();
+    return;
+  }
+  websocketServer.handleUpgrade(request, socket, head, (websocket) => {
+    websocketServer.emit('connection', websocket, request, session);
+  });
+});
+
+websocketServer.on('connection', (socket, _request, session) => {
+  socket.isAlive = true;
+  socket.on('pong', () => { socket.isAlive = true; });
+  socket.on('message', (raw) => {
+    if (raw.toString() === '{"type":"ping"}') socket.send('{"type":"pong"}');
+  });
+  if (!subscribeWebSocket(session.id, socket)) {
+    socket.close(1013, 'too-many-connections');
+    return;
+  }
+  socket.send(JSON.stringify({ type: 'session.snapshot', session: sessionSnapshot(session) }));
+});
+
+const heartbeat = setInterval(() => {
+  for (const clients of websocketClients.values()) {
+    for (const socket of clients) {
+      if (!socket.isAlive) {
+        socket.terminate();
+        continue;
+      }
+      socket.isAlive = false;
+      socket.ping();
+    }
+  }
+}, 30000);
+heartbeat.unref();
 
 async function start() {
   if (database) {

@@ -80,6 +80,18 @@ function verifyEventsSecret(provided, expected) {
   return providedBuffer.length === expectedBuffer.length && timingSafeEqual(providedBuffer, expectedBuffer);
 }
 
+function websocketAccessToken(request) {
+  const protocols = String(request?.headers?.['sec-websocket-protocol'] || '')
+    .split(',')
+    .map((protocol) => protocol.trim());
+  return protocols.find((protocol) => protocol.startsWith('bearer.'))?.slice('bearer.'.length) || null;
+}
+
+async function authenticateWebSocket(request, verifyToken = verifyGoogleAccessToken) {
+  const token = websocketAccessToken(request);
+  return token ? verifyToken(token) : null;
+}
+
 function createLiveStore() {
   const sessions = new Map();
 
@@ -199,4 +211,4 @@ function renderReportHtml(session) {
 </style><style>body{overflow-x:hidden}main{width:min(100%,960px)}.summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.summary span{padding:14px;border:1px solid var(--line);border-top:3px solid var(--cherry);border-radius:10px}.table-wrap{overflow-x:auto}table{min-width:560px}th,td{overflow-wrap:anywhere;vertical-align:top}caption{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}@media(max-width:600px){.summary{grid-template-columns:repeat(2,minmax(0,1fr))}}</style></head><body><main><header><div><p class="eyebrow">HOLBIES MEET TRACKER</p><h1>Rapport de réunion</h1></div><p>Mentor : ${escapeHtml(session?.mentorEmail)}</p></header><section><h2>Résumé des présences</h2><div class="summary"><span>À l'heure : ${counts.onTime}</span><span>En retard : ${counts.late}</span><span>En attente : ${counts.waiting}</span><span>Absents : ${counts.absent}</span></div></section><section><h2>Détail des participants</h2><div class="table-wrap"><table><caption>Détail des participants</caption><thead><tr><th scope="col">Participant</th><th scope="col">Statut</th><th scope="col">Retard</th></tr></thead><tbody>${rows || '<tr><td colspan="3">Aucune présence enregistrée.</td></tr>'}</tbody></table></div></section></main></body></html>`;
 }
 
-export { ALLOWED_DOMAIN, applyMeetEvent, applyParticipantSnapshot, calculateStatus, createLiveStore, decodeWorkspaceEvent, getParticipantStatuses, identityKeys, isAllowedEmail, mergeIdentityRows, renderReportHtml, verifyEventsSecret, verifyGoogleAccessToken };
+export { ALLOWED_DOMAIN, applyMeetEvent, applyParticipantSnapshot, authenticateWebSocket, calculateStatus, createLiveStore, decodeWorkspaceEvent, getParticipantStatuses, identityKeys, isAllowedEmail, mergeIdentityRows, renderReportHtml, verifyEventsSecret, verifyGoogleAccessToken, websocketAccessToken };

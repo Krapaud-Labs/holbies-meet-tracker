@@ -20,6 +20,8 @@ Le bouton de connexion lance désormais le consentement Google via `chrome.ident
 
 ## Backend Live VPS
 
+Le suivi live utilise le WebSocket sécurisé `/api/v1/live/sessions/{id}/stream` quand il est disponible. La popup négocie `holbies-live-v1`, transmet le jeton Google dans un sous-protocole `bearer.*`, reçoit les changements en temps réel et revient automatiquement au polling avec reconnexion progressive en cas de coupure.
+
 Le service worker MV3 lance aussi un cycle périodique gratuit sur les réunions Agenda proches. Il crée la session et envoie les snapshots Meet même si la popup est fermée ou si le mentor ne rejoint pas la réunion. Le navigateur doit rester ouvert et le consentement Google doit avoir été accordé au moins une fois.
 Après la fin prévue dans Agenda, il attend dix minutes avant de clôturer la session et de calculer les absents. Cette marge protège les réunions qui débordent ; elle ne déclare jamais absent un invité pendant la réunion active.
 La popup affiche aussi le dernier état du worker (dernier cycle, réunions suivies et erreurs éventuelles) pour rendre le suivi autonome vérifiable.

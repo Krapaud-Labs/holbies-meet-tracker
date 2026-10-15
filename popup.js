@@ -42,6 +42,10 @@ let calendarEvents = [];
 let calendarCatalog = [];
 let liveSessionId = null;
 let livePollTimer = null;
+let liveSocket = null;
+let liveSocketReconnectTimer = null;
+let liveSocketReconnectAttempt = 0;
+let liveSocketStopped = false;
 const AUTH_TIMEOUT_MS = 15000;
 const LIVE_START_WINDOW_MS = 15 * 60 * 1000;
 const LIVE_END_GRACE_MS = 10 * 60 * 1000;
@@ -74,7 +78,13 @@ function withTimeout(promise, timeoutMs, errorCode) {
 
 function stopLiveTracking() {
   if (livePollTimer) clearInterval(livePollTimer);
+  if (liveSocketReconnectTimer) clearTimeout(liveSocketReconnectTimer);
+  if (liveSocket) liveSocket.close(1000, 'tracking-stopped');
   livePollTimer = null;
+  liveSocketReconnectTimer = null;
+  liveSocket = null;
+  liveSocketReconnectAttempt = 0;
+  liveSocketStopped = true;
   liveSessionId = null;
   liveIndicator.hidden = true;
   liveReportLink.hidden = true;
@@ -112,6 +122,8 @@ async function fetchMeetLiveSnapshot(recordName) {
 
 async function startLiveTracking(meetingId, scheduledStart, expectedParticipants) {
   if (!LIVE_BACKEND_URL || !currentAccessToken) return;
+  stopLiveTracking();
+  liveSocketStopped = false;
   try {
     const created = await fetchWithRetry(`${LIVE_BACKEND_URL}/api/v1/live/sessions`, {
       method: 'POST',
@@ -121,10 +133,10 @@ async function startLiveTracking(meetingId, scheduledStart, expectedParticipants
     const session = await created.json();
     liveSessionId = session.id;
     liveIndicator.hidden = false;
-    liveStatus.textContent = 'Présences actualisées toutes les 5 secondes.';
+    liveStatus.textContent = 'Connexion temps réel en cours…';
     liveReportLink.href = `${LIVE_BACKEND_URL}/reports/${encodeURIComponent(liveSessionId)}`;
     liveReportLink.hidden = false;
-    const refresh = async () => {
+    const refreshLiveSession = async () => {
       const snapshot = await fetchMeetLiveSnapshot(meetingId);
       await fetchWithRetry(`${LIVE_BACKEND_URL}/api/v1/live/sessions/${encodeURIComponent(liveSessionId)}/participants`, {
         method: 'PUT',
@@ -140,8 +152,76 @@ async function startLiveTracking(meetingId, scheduledStart, expectedParticipants
       }));
       if (rows.length) renderAttendanceRows(rows);
     };
-    await refresh();
-    livePollTimer = setInterval(() => refresh().catch(() => {}), 5000);
+    const startPollingFallback = () => {
+      if (liveSocketStopped || livePollTimer) return;
+      liveStatus.textContent = 'Temps réel indisponible, actualisation toutes les 5 secondes.';
+      livePollTimer = setInterval(() => refreshLiveSession().catch(() => {}), 5000);
+    };
+    const stopPollingFallback = () => {
+      if (!livePollTimer) return;
+      clearInterval(livePollTimer);
+      livePollTimer = null;
+    };
+    const scheduleSocketReconnect = () => {
+      if (liveSocketStopped || liveSocketReconnectTimer) return;
+      const delay = Math.min(30_000, 1_000 * (2 ** liveSocketReconnectAttempt));
+      liveSocketReconnectAttempt += 1;
+      liveSocketReconnectTimer = setTimeout(() => {
+        liveSocketReconnectTimer = null;
+        connectLiveSocket();
+      }, delay);
+    };
+    const connectLiveSocket = () => {
+      if (liveSocketStopped || !liveSessionId || typeof WebSocket === 'undefined') {
+        startPollingFallback();
+        return;
+      }
+      const socketUrl = `${LIVE_BACKEND_URL.replace(/^http/i, 'ws')}/api/v1/live/sessions/${encodeURIComponent(liveSessionId)}/stream`;
+      let socket;
+      try {
+        socket = new WebSocket(socketUrl, ['holbies-live-v1', `bearer.${currentAccessToken}`]);
+      } catch {
+        startPollingFallback();
+        scheduleSocketReconnect();
+        return;
+      }
+      liveSocket = socket;
+      socket.addEventListener('open', () => {
+        if (liveSocket !== socket || liveSocketStopped) return;
+        liveSocketReconnectAttempt = 0;
+        stopPollingFallback();
+        liveStatus.textContent = 'Présences actualisées en temps réel.';
+      });
+      socket.addEventListener('message', (event) => {
+        if (liveSocket !== socket) return;
+        try {
+          const payload = JSON.parse(event.data);
+          const participantStatuses = payload.participantStatuses || payload.session?.participantStatuses;
+          if (!Array.isArray(participantStatuses)) return;
+          const rows = participantStatuses.map((participant) => ({
+            name: participant.name,
+            email: participant.email || '',
+            status: formatAttendanceStatus(participant.status),
+            lateMinutes: participant.lateMinutes || 0,
+          }));
+          if (rows.length) renderAttendanceRows(rows);
+        } catch {
+          // Ignore malformed server messages and keep the connection alive.
+        }
+      });
+      socket.addEventListener('error', () => {
+        if (liveSocket === socket) startPollingFallback();
+      });
+      socket.addEventListener('close', () => {
+        if (liveSocket !== socket) return;
+        liveSocket = null;
+        startPollingFallback();
+        scheduleSocketReconnect();
+      });
+    };
+    await refreshLiveSession();
+    startPollingFallback();
+    connectLiveSocket();
   } catch (error) {
     liveStatus.textContent = `${describeLiveBackendError(error)} Le relevé Meet reste disponible localement.`;
   }
