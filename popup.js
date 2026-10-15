@@ -139,11 +139,11 @@ async function startLiveTracking(meetingId, scheduledStart, expectedParticipants
       });
       const response = await fetchWithRetry(`${LIVE_BACKEND_URL}/api/v1/live/sessions/${encodeURIComponent(liveSessionId)}`, { headers: { Authorization: `Bearer ${currentAccessToken}` } });
       const liveSession = await response.json();
-      const rows = (liveSession.expectedParticipants || []).map((expected) => {
-        const actual = (liveSession.participants || []).find((participant) => participant.email === expected.email || participant.name === expected.displayName);
-        const fallbackStatus = liveSession.endedAt ? 'absent' : 'waiting';
-        return { name: expected.displayName || expected.name, status: formatAttendanceStatus(actual?.status || fallbackStatus), lateMinutes: actual?.lateMinutes || 0 };
-      });
+      const rows = (liveSession.participantStatuses || []).map((participant) => ({
+        name: participant.name,
+        status: formatAttendanceStatus(participant.status),
+        lateMinutes: participant.lateMinutes || 0,
+      }));
       if (rows.length) renderAttendanceRows(rows);
     };
     await refresh();

@@ -1,7 +1,7 @@
 import http from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { createDatabase } from './database.js';
-import { applyMeetEvent, applyParticipantSnapshot, createLiveStore, decodeWorkspaceEvent, renderReportHtml, verifyEventsSecret, verifyGoogleAccessToken } from './live.js';
+import { applyMeetEvent, applyParticipantSnapshot, createLiveStore, decodeWorkspaceEvent, getParticipantStatuses, mergeIdentityRows, renderReportHtml, verifyEventsSecret, verifyGoogleAccessToken } from './live.js';
 
 const port = Number(process.env.PORT || 8080);
 const maxBodyBytes = Number(process.env.MAX_BODY_BYTES || 256 * 1024);
@@ -91,7 +91,7 @@ const server = http.createServer(async (request, response) => {
         meetingId: body.meetingId,
         mentorEmail: mentor.email,
         scheduledStart: body.scheduledStart,
-        expectedParticipants: (body.expectedParticipants || []).filter((participant) => participant && (participant.email || participant.name || participant.displayName)),
+        expectedParticipants: mergeIdentityRows(body.expectedParticipants || []),
         participants: [],
         createdAt: new Date().toISOString(),
       };
@@ -110,7 +110,7 @@ const server = http.createServer(async (request, response) => {
     if (!mentor) json(response, 403, { error: 'mentor-domain-not-allowed' });
     else if (!session) json(response, 404, { error: 'live-session-not-found' });
     else if (session.mentorEmail !== mentor.email) json(response, 403, { error: 'session-owner-only' });
-    else json(response, 200, session);
+    else json(response, 200, { ...session, participantStatuses: getParticipantStatuses(session) });
     return;
   }
 

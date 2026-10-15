@@ -25,6 +25,11 @@ test('keeps a small delay on time', () => {
   assert.deepEqual(result, { status: 'on-time', lateMinutes: 0 });
 });
 
+test('keeps the exact tolerance boundary stable', () => {
+  assert.deepEqual(calculateStatus('2026-10-13T09:47:00Z', '2026-10-13T09:45:00Z'), { status: 'on-time', lateMinutes: 0 });
+  assert.deepEqual(calculateStatus('2026-10-13T09:47:01Z', '2026-10-13T09:45:00Z'), { status: 'late', lateMinutes: 3 });
+});
+
 test('renders a safe HTML report with late participants highlighted', () => {
   const html = renderReportHtml({ mentorEmail: 'mentor@holbertonschool.com', participants: [{ name: '<Alice>', status: 'late', lateMinutes: 8 }] });
   assert.match(html, /&lt;Alice&gt;/);
@@ -100,4 +105,23 @@ test('merges reconnect snapshots without creating a late or duplicate participan
   assert.equal(session.participants[0].lateMinutes, 0);
   assert.equal(session.participants[0].joinedAt, '2026-10-13T09:01:00Z');
   assert.equal(session.participants[0].leftAt, '2026-10-13T09:40:00Z');
+});
+
+test('merges an ID email and nominative email into one live identity', () => {
+  const session = {
+    scheduledStart: '2026-10-13T09:45:00Z',
+    expectedParticipants: [
+      { email: '14000@holbertonstudents.com', displayName: 'Pierre Cardin' },
+      { email: 'pierre.cardin@holbertonstudents.com', displayName: 'Pierre Cardin' },
+    ],
+    participants: [],
+  };
+  applyParticipantSnapshot(session, [
+    { email: '14000@holbertonstudents.com', name: 'Pierre Cardin', joinedAt: '2026-10-13T09:46:00Z' },
+    { email: 'pierre.cardin@holbertonstudents.com', name: 'Pierre Cardin', joinedAt: '2026-10-13T10:01:00Z' },
+  ]);
+  const statuses = getParticipantStatuses(session);
+  assert.equal(statuses.length, 1);
+  assert.equal(statuses[0].status, 'on-time');
+  assert.equal(statuses[0].joinedAt, '2026-10-13T09:46:00Z');
 });

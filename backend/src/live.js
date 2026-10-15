@@ -32,6 +32,47 @@ function isAllowedEmail(email) {
   return typeof email === 'string' && email.trim().toLowerCase().endsWith(`@${ALLOWED_DOMAIN}`);
 }
 
+function normalizeIdentity(value) {
+  return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function identityKeys(row) {
+  const email = String(row?.email || '').trim().toLowerCase();
+  const name = normalizeIdentity(row?.name || row?.displayName);
+  const keys = new Set();
+  if (email) {
+    keys.add(`email:${email}`);
+    const id = email.match(/^(\d{4,5})@holbertonstudents\.com$/)?.[1];
+    if (id) keys.add(`student-id:${id}`);
+    const local = email.split('@')[0];
+    if (!/^\d{4,5}$/.test(local)) keys.add(`name:${normalizeIdentity(local.replace(/[._-]+/g, ' '))}`);
+  }
+  if (name && name !== 'participant inconnu') keys.add(`name:${name}`);
+  return [...keys];
+}
+
+function mergeIdentityRows(rows) {
+  const merged = [];
+  const indexes = new Map();
+  for (const row of Array.isArray(rows) ? rows : []) {
+    if (!row || (!row.email && !row.name && !row.displayName)) continue;
+    const keys = identityKeys(row);
+    const matchIndex = keys.map((key) => indexes.get(key)).find((index) => index !== undefined);
+    if (matchIndex === undefined) {
+      const next = { ...row, email: row.email?.toLowerCase?.() || row.email || null, leftAt: row.leftAt || row.lastLeave || null };
+      merged.push(next);
+      keys.forEach((key) => indexes.set(key, merged.length - 1));
+      continue;
+    }
+    const current = merged[matchIndex];
+    const joinedAt = [current.joinedAt, current.firstJoin, row.joinedAt, row.firstJoin].filter(Boolean).sort()[0] || null;
+    const leftAt = [current.leftAt, current.lastLeave, row.leftAt, row.lastLeave].filter(Boolean).sort().at(-1) || null;
+    merged[matchIndex] = { ...current, ...row, name: current.name || row.name || row.displayName, email: current.email || row.email || null, joinedAt, leftAt };
+    identityKeys(merged[matchIndex]).forEach((key) => indexes.set(key, matchIndex));
+  }
+  return merged;
+}
+
 function verifyEventsSecret(provided, expected) {
   if (typeof provided !== 'string' || typeof expected !== 'string' || !provided || !expected) return false;
   const providedBuffer = Buffer.from(provided);
@@ -99,26 +140,11 @@ function applyMeetEvent(session, event) {
 
 function applyParticipantSnapshot(session, participants) {
   if (!session || !Array.isArray(participants)) return session;
-  const merged = new Map((session.participants || []).map((participant) => [participant.email?.toLowerCase?.() || participant.name?.toLowerCase?.(), { ...participant }]));
-  participants
+  const incoming = participants
     .filter((participant) => participant && (participant.name || participant.email))
     .slice(0, 250)
-    .forEach((participant) => {
-      const email = participant.email?.toLowerCase?.() || null;
-      const name = participant.name || email || 'Participant inconnu';
-      const joinedAt = participant.joinedAt || participant.firstJoin || null;
-      const leftAt = participant.leftAt || participant.lastLeave || null;
-      const key = email || name.toLowerCase();
-      const current = merged.get(key);
-      if (!current) {
-        merged.set(key, { name, email, joinedAt, leftAt });
-        return;
-      }
-      if (joinedAt && (!current.joinedAt || Date.parse(joinedAt) < Date.parse(current.joinedAt))) current.joinedAt = joinedAt;
-      if (leftAt && (!current.leftAt || Date.parse(leftAt) > Date.parse(current.leftAt))) current.leftAt = leftAt;
-      if (!current.email && email) current.email = email;
-    });
-  session.participants = [...merged.values()].map((participant) => {
+    .map((participant) => ({ ...participant, name: participant.name || participant.email || 'Participant inconnu', email: participant.email?.toLowerCase?.() || null }));
+  session.participants = mergeIdentityRows([...(session.participants || []), ...incoming]).map((participant) => {
     const status = calculateStatus(participant.joinedAt, session.scheduledStart);
     return { ...participant, status: status.status, lateMinutes: status.lateMinutes };
   });
@@ -126,20 +152,18 @@ function applyParticipantSnapshot(session, participants) {
 }
 
 function getParticipantStatuses(session) {
-  const current = new Map((session?.participants || []).map((participant) => [participant.email?.toLowerCase?.() || participant.name?.toLowerCase?.(), participant]));
-  const expectedStatuses = (session?.expectedParticipants || []).map((expected) => {
-    const key = (expected.email || expected.name || expected.displayName)?.toLowerCase?.();
-    const fallbackKey = (expected.name || expected.displayName)?.toLowerCase?.();
-    const participant = current.get(key) || current.get(fallbackKey);
+  const expected = mergeIdentityRows(session?.expectedParticipants || []);
+  const current = mergeIdentityRows(session?.participants || []);
+  const expectedStatuses = expected.map((expectedParticipant) => {
+    const participant = current.find((candidate) => identityKeys(candidate).some((key) => identityKeys(expectedParticipant).includes(key)));
     return participant || {
-      name: expected.displayName || expected.name,
-      email: expected.email || null,
+      name: expectedParticipant.displayName || expectedParticipant.name,
+      email: expectedParticipant.email || null,
       status: session?.endedAt ? 'absent' : 'waiting',
       lateMinutes: 0,
     };
   });
-  const expectedKeys = new Set((session?.expectedParticipants || []).flatMap((expected) => [expected.email, expected.name, expected.displayName].filter(Boolean).map((value) => value.toLowerCase())));
-  return [...expectedStatuses, ...(session?.participants || []).filter((participant) => !expectedKeys.has((participant.email || participant.name || '').toLowerCase()))];
+  return [...expectedStatuses, ...current.filter((participant) => !expected.some((item) => identityKeys(item).some((key) => identityKeys(participant).includes(key))))];
 }
 
 function calculateStatus(joinedAt, scheduledStart, toleranceMinutes = 2) {
@@ -166,4 +190,4 @@ function renderReportHtml(session) {
 </style></head><body><main><header><div><p class="eyebrow">HOLBIES MEET TRACKER</p><h1>Rapport de réunion</h1></div><p>Mentor : ${escapeHtml(session?.mentorEmail)}</p></header><section><h2>Présences</h2><table><thead><tr><th>Participant</th><th>Statut</th><th>Retard</th></tr></thead><tbody>${rows || '<tr><td colspan="3">Aucune présence enregistrée.</td></tr>'}</tbody></table></section></main></body></html>`;
 }
 
-export { ALLOWED_DOMAIN, applyMeetEvent, applyParticipantSnapshot, calculateStatus, createLiveStore, decodeWorkspaceEvent, getParticipantStatuses, isAllowedEmail, renderReportHtml, verifyEventsSecret, verifyGoogleAccessToken };
+export { ALLOWED_DOMAIN, applyMeetEvent, applyParticipantSnapshot, calculateStatus, createLiveStore, decodeWorkspaceEvent, getParticipantStatuses, identityKeys, isAllowedEmail, mergeIdentityRows, renderReportHtml, verifyEventsSecret, verifyGoogleAccessToken };
