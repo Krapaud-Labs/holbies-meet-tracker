@@ -488,7 +488,7 @@ function renderAttendanceRows(rows) {
 }
 
 function renderLiveRows(rows) {
-  const safeRows = Array.isArray(rows) ? rows : [];
+  const safeRows = MeetAttendance.mergeAttendanceRows(Array.isArray(rows) ? rows : []);
   renderAttendanceRows(safeRows);
   setAttendanceState(safeRows.length ? 'success' : 'empty', safeRows.length
     ? `${safeRows.length} participant${safeRows.length > 1 ? 's' : ''} trouvé${safeRows.length > 1 ? 's' : ''}.`
