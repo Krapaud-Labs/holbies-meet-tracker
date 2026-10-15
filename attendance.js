@@ -20,21 +20,44 @@
     return email ? `email:${email}` : `row:${name}`;
   }
 
+  function getAttendanceIdentityKeys(row) {
+    const keys = new Set([getAttendanceIdentityKey(row)]);
+    const email = String(row?.email || '').trim().toLocaleLowerCase('fr-FR');
+    const localPart = email.split('@')[0];
+    if (email) keys.add(`email:${email}`);
+    if (/^\d{4,5}@holbertonstudents\.com$/.test(email)) keys.add(`student-id:${localPart}`);
+    if (localPart && !/^\d{4,5}$/.test(localPart) && email.endsWith('@holbertonstudents.com')) {
+      keys.add(`name:${normalizePersonName(localPart.replace(/[._-]+/g, ' '))}`);
+    }
+    const name = normalizePersonName(row?.name);
+    if (name && !name.includes('@') && name !== 'participant inconnu') keys.add(`name:${name}`);
+    return [...keys];
+  }
+
   function mergeAttendanceRows(rows) {
-    const merged = new Map();
+    const merged = [];
     const priority = { absent: 0, waiting: 1, 'identity-to-check': 2, late: 3, 'on-time': 4 };
 
+    const indexes = new Map();
     for (const row of Array.isArray(rows) ? rows : []) {
-      const key = getAttendanceIdentityKey(row);
-      const current = merged.get(key);
-      if (!current || (priority[row.status] || 0) > (priority[current.status] || 0)) {
-        merged.set(key, row);
-      } else if (!current.email && row.email) {
-        merged.set(key, { ...current, email: row.email });
+      const keys = getAttendanceIdentityKeys(row);
+      const currentKey = keys.find((key) => indexes.has(key));
+      const current = currentKey ? merged[indexes.get(currentKey)] : null;
+      if (!current) {
+        const index = merged.length;
+        merged.push(row);
+        keys.forEach((key) => indexes.set(key, index));
+      } else {
+        const index = indexes.get(currentKey);
+        const next = (priority[row.status] || 0) > (priority[current.status] || 0)
+          ? { ...row, email: row.email || current.email }
+          : (!current.email && row.email ? { ...current, email: row.email } : current);
+        merged[index] = next;
+        getAttendanceIdentityKeys(next).forEach((key) => indexes.set(key, index));
       }
     }
 
-    return [...merged.values()];
+    return merged;
   }
 
   function getParticipantIdentity(participant) {
@@ -97,7 +120,7 @@
     return { ...identity, status, firstJoin: window.firstJoin, lastLeave: window.lastLeave };
   }
 
-  const api = { calculateAttendance, getParticipantIdentity, getSessionWindow, getAttendanceIdentityKey, mergeAttendanceRows, normalizePersonName };
+  const api = { calculateAttendance, getParticipantIdentity, getSessionWindow, getAttendanceIdentityKey, getAttendanceIdentityKeys, mergeAttendanceRows, normalizePersonName };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   globalScope.MeetAttendance = api;
 })(typeof globalThis === 'undefined' ? window : globalThis);
