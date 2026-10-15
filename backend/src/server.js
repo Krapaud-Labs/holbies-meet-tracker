@@ -1,8 +1,8 @@
 import http from 'node:http';
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { WebSocketServer } from 'ws';
 import { createDatabase } from './database.js';
-import { applyMeetEvent, applyParticipantSnapshot, authenticateWebSocket, createLiveStore, decodeWorkspaceEvent, getParticipantStatuses, mergeIdentityRows, renderReportHtml, verifyEventsSecret, verifyGoogleAccessToken } from './live.js';
+import { applyMeetEvent, applyParticipantSnapshot, createLiveStore, decodeWorkspaceEvent, getParticipantStatuses, mergeIdentityRows, renderReportHtml, verifyEventsSecret, verifyGoogleAccessToken } from './live.js';
 
 const port = Number(process.env.PORT || 8080);
 const maxBodyBytes = Number(process.env.MAX_BODY_BYTES || 256 * 1024);
@@ -17,6 +17,8 @@ const websocketServer = new WebSocketServer({
 });
 const websocketClients = new Map();
 const maxWebSocketClientsPerSession = Number(process.env.MAX_WEBSOCKET_CLIENTS_PER_SESSION || 20);
+const websocketTicketTtlMs = Number(process.env.WEBSOCKET_TICKET_TTL_MS || 30_000);
+const websocketTickets = new Map();
 
 function sessionSnapshot(session) {
   return { ...session, participantStatuses: getParticipantStatuses(session) };
@@ -42,6 +44,24 @@ function subscribeWebSocket(sessionId, socket) {
     if (clients.size === 0) websocketClients.delete(sessionId);
   });
   return true;
+}
+
+function createWebSocketTicket(sessionId, mentorEmail) {
+  const ticket = randomBytes(32).toString('base64url');
+  websocketTickets.set(ticket, { sessionId, mentorEmail, expiresAt: Date.now() + websocketTicketTtlMs });
+  return ticket;
+}
+
+function consumeWebSocketTicket(ticket, sessionId, mentorEmail) {
+  if (typeof ticket !== 'string' || ticket.length < 32) return false;
+  const entry = websocketTickets.get(ticket);
+  websocketTickets.delete(ticket);
+  if (!entry || entry.expiresAt < Date.now() || entry.sessionId !== sessionId || entry.mentorEmail !== mentorEmail) return false;
+  return true;
+}
+
+function sameOrigin(request) {
+  return request.headers.origin === allowedExtensionOrigin;
 }
 
 function bearerToken(request) {
@@ -140,6 +160,18 @@ const server = http.createServer(async (request, response) => {
     return;
   }
 
+  if (request.method === 'POST' && url.pathname.startsWith('/api/v1/live/sessions/') && url.pathname.endsWith('/stream-ticket')) {
+    const sessionId = url.pathname.split('/').at(-2);
+    const session = store.get(sessionId);
+    const mentor = await authenticate(request);
+    if (!sameOrigin(request)) json(response, 403, { error: 'extension-origin-required' });
+    else if (!mentor) json(response, 403, { error: 'mentor-domain-not-allowed' });
+    else if (!session) json(response, 404, { error: 'live-session-not-found' });
+    else if (session.mentorEmail !== mentor.email) json(response, 403, { error: 'session-owner-only' });
+    else json(response, 201, { ticket: createWebSocketTicket(session.id, mentor.email), expiresInMs: websocketTicketTtlMs });
+    return;
+  }
+
   if (request.method === 'GET' && url.pathname.startsWith('/api/v1/live/sessions/')) {
     const session = store.get(url.pathname.split('/').pop());
     const mentor = await authenticate(request);
@@ -235,8 +267,9 @@ server.on('upgrade', async (request, socket, head) => {
   const url = new URL(request.url, `http://${request.headers.host || 'localhost'}`);
   const match = url.pathname.match(/^\/api\/v1\/live\/sessions\/([^/]+)\/stream$/);
   const session = match ? store.get(match[1]) : null;
-  const mentor = match ? await authenticateWebSocket(request) : null;
-  if (!match || !session || !mentor || session.mentorEmail !== mentor.email || !String(request.headers['sec-websocket-protocol'] || '').split(',').some((protocol) => protocol.trim() === 'holbies-live-v1')) {
+  const ticket = url.searchParams.get('ticket');
+  const protocols = String(request.headers['sec-websocket-protocol'] || '').split(',').map((protocol) => protocol.trim());
+  if (!match || !session || !sameOrigin(request) || !protocols.includes('holbies-live-v1') || !consumeWebSocketTicket(ticket, session.id, session.mentorEmail)) {
     socket.write('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n');
     socket.destroy();
     return;
@@ -260,6 +293,9 @@ websocketServer.on('connection', (socket, _request, session) => {
 });
 
 const heartbeat = setInterval(() => {
+  for (const [ticket, entry] of websocketTickets) {
+    if (entry.expiresAt < Date.now()) websocketTickets.delete(ticket);
+  }
   for (const clients of websocketClients.values()) {
     for (const socket of clients) {
       if (!socket.isAlive) {

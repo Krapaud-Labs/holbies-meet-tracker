@@ -171,15 +171,29 @@ async function startLiveTracking(meetingId, scheduledStart, expectedParticipants
         connectLiveSocket();
       }, delay);
     };
-    const connectLiveSocket = () => {
+    const connectLiveSocket = async () => {
       if (liveSocketStopped || !liveSessionId || typeof WebSocket === 'undefined') {
         startPollingFallback();
         return;
       }
-      const socketUrl = `${LIVE_BACKEND_URL.replace(/^http/i, 'ws')}/api/v1/live/sessions/${encodeURIComponent(liveSessionId)}/stream`;
+      let ticketResponse;
+      try {
+        ticketResponse = await fetchWithRetry(`${LIVE_BACKEND_URL}/api/v1/live/sessions/${encodeURIComponent(liveSessionId)}/stream-ticket`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${currentAccessToken}` },
+        });
+        if (!ticketResponse.ok) throw new Error(`websocket-ticket-failed-${ticketResponse.status}`);
+      } catch {
+        startPollingFallback();
+        scheduleSocketReconnect();
+        return;
+      }
+      const { ticket } = await ticketResponse.json();
+      if (!ticket || liveSocketStopped) return;
+      const socketUrl = `${LIVE_BACKEND_URL.replace(/^http/i, 'ws')}/api/v1/live/sessions/${encodeURIComponent(liveSessionId)}/stream?ticket=${encodeURIComponent(ticket)}`;
       let socket;
       try {
-        socket = new WebSocket(socketUrl, ['holbies-live-v1', `bearer.${currentAccessToken}`]);
+        socket = new WebSocket(socketUrl, ['holbies-live-v1']);
       } catch {
         startPollingFallback();
         scheduleSocketReconnect();

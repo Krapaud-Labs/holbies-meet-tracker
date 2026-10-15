@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { applyMeetEvent, applyParticipantSnapshot, authenticateWebSocket, calculateStatus, createLiveStore, decodeWorkspaceEvent, getParticipantStatuses, isAllowedEmail, renderReportHtml, verifyEventsSecret, verifyGoogleAccessToken, websocketAccessToken } from '../src/live.js';
+import { applyMeetEvent, applyParticipantSnapshot, calculateStatus, createLiveStore, decodeWorkspaceEvent, getParticipantStatuses, isAllowedEmail, renderReportHtml, verifyEventsSecret, verifyGoogleAccessToken } from '../src/live.js';
 
 test('only Holberton School emails are allowed', () => {
   assert.equal(isAllowedEmail('mentor@holbertonschool.com'), true);
@@ -13,17 +13,6 @@ test('requires the exact Google events secret', () => {
   assert.equal(verifyEventsSecret('secret-123', 'secret-124'), false);
   assert.equal(verifyEventsSecret(undefined, 'secret-123'), false);
   assert.equal(verifyEventsSecret('secret-123', undefined), false);
-});
-
-test('extracts the WebSocket bearer token from the subprotocols', () => {
-  assert.equal(websocketAccessToken({ headers: { 'sec-websocket-protocol': 'holbies-live-v1, bearer.token-value' } }), 'token-value');
-  assert.equal(websocketAccessToken({ headers: { 'sec-websocket-protocol': 'holbies-live-v1' } }), null);
-});
-
-test('authenticates WebSocket sessions without accepting a query-string token', async () => {
-  const verifyToken = async (token) => ({ email: `${token}@holbertonschool.com` });
-  assert.deepEqual(await authenticateWebSocket({ headers: { 'sec-websocket-protocol': 'holbies-live-v1, bearer.mentor' } }, verifyToken), { email: 'mentor@holbertonschool.com' });
-  assert.equal(await authenticateWebSocket({ headers: {} }, verifyToken), null);
 });
 
 test('calculates late status and minutes', () => {

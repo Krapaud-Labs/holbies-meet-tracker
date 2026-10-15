@@ -5,13 +5,23 @@ import test from 'node:test';
 const serverSource = await readFile(new URL('../src/server.js', import.meta.url), 'utf8');
 const packageSource = await readFile(new URL('../package.json', import.meta.url), 'utf8');
 
-test('backend accepts authenticated WebSocket upgrades for a live session', () => {
+test('backend exchanges HTTP Bearer authentication for a one-time WebSocket ticket', () => {
   assert.match(packageSource, /"ws"\s*:/);
   assert.match(serverSource, /new WebSocketServer/);
   assert.match(serverSource, /server\.on\(['"]upgrade['"]/);
-  assert.match(serverSource, /authenticateWebSocket/);
+  assert.match(serverSource, /stream-ticket/);
+  assert.match(serverSource, /createWebSocketTicket/);
+  assert.match(serverSource, /consumeWebSocketTicket/);
+  assert.match(serverSource, /randomBytes/);
+  assert.doesNotMatch(serverSource, /bearer\.\$\{currentAccessToken\}/);
   assert.match(serverSource, /holbies-live-v1/);
   assert.match(serverSource, /session\.mentorEmail !== mentor\.email/);
+});
+
+test('backend enforces the extension Origin during ticket issuance and upgrade', () => {
+  assert.match(serverSource, /sameOrigin\(request\)/);
+  assert.match(serverSource, /allowedExtensionOrigin/);
+  assert.match(serverSource, /extension-origin-required/);
 });
 
 test('backend broadcasts participant updates to subscribed clients', () => {
