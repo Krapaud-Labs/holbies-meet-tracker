@@ -316,7 +316,6 @@ function setAttendanceState(state, message) {
 }
 
 function renderAttendanceRows(rows) {
-  participantList.replaceChildren();
   currentAttendanceRows = rows;
   const counts = rows.reduce((summary, row) => {
     if (row.status === 'à l’heure') summary.onTime += 1;
@@ -333,22 +332,6 @@ function renderAttendanceRows(rows) {
   exportButton.disabled = rows.length === 0 || !exportConsent.checked;
   htmlExportButton.hidden = rows.length === 0;
 
-  rows.forEach((row) => {
-    const item = document.createElement('li');
-    item.className = 'participant-item';
-
-    const identity = document.createElement('span');
-    identity.className = 'participant-identity';
-    identity.textContent = row.name;
-
-    const status = document.createElement('span');
-    status.className = 'participant-status';
-    status.dataset.status = row.status;
-    status.textContent = row.status;
-
-    item.append(identity, status);
-    participantList.append(item);
-  });
 }
 
 async function exportAttendanceToSheets() {
@@ -398,7 +381,6 @@ async function exportAttendanceToSheets() {
 }
 
 function prepareAttendanceView(event) {
-  participantList.replaceChildren();
   currentAttendanceRows = [];
   attendanceSummary.hidden = true;
   exportButton.disabled = true;
