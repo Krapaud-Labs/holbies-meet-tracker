@@ -1,5 +1,5 @@
 const assert = require('node:assert/strict');
-const { calculateAttendance, getSessionWindow, getAttendanceIdentityKey, mergeAttendanceRows } = require('../attendance.js');
+const { calculateAttendance, getSessionWindow, getAttendanceIdentityKey, getAttendanceIdentityKeys, mergeAttendanceRows } = require('../attendance.js');
 
 const eventStart = '2026-10-13T09:00:00.000Z';
 
@@ -17,10 +17,32 @@ assert.deepEqual(mergeAttendanceRows([
   { name: 'Pierre Cardin', email: 'pierre.cardin@holbertonstudents.com', status: 'absent' },
   { name: 'Pierre Cardin', email: '14000@holbertonstudents.com', status: 'on-time' },
 ]), [{ name: 'Pierre Cardin', email: '14000@holbertonstudents.com', status: 'on-time' }]);
+assert.deepEqual(mergeAttendanceRows([
+  { name: 'Pierre Cardin', email: '14000@holbertonstudents.com', status: 'absent' },
+  { name: 'Pierre Cardin', email: 'pierre.cardin@holbertonstudents.com', status: 'on-time' },
+]), [{ name: 'Pierre Cardin', email: 'pierre.cardin@holbertonstudents.com', status: 'on-time' }]);
+assert.ok(getAttendanceIdentityKeys({ name: 'Pierre Cardin', email: 'pierre.cardin@holbertonstudents.com' }).includes('name:pierre cardin'));
+const duplicateAliasRows = mergeAttendanceRows([
+  { name: 'Pierre Cardin', email: 'pierre.cardin@holbertonstudents.com', status: 'en attente' },
+  { name: 'PIERRE CARDIN', email: '14000@holbertonstudents.com', status: 'à l’heure' },
+]);
+assert.equal(duplicateAliasRows.length, 1);
+const numberedEmailAliasRows = mergeAttendanceRows([
+  { name: 'Benjamin Dereuck', email: 'benjamin.dereuck@holbertonstudents.com', status: 'on-time' },
+  { name: 'benjamin.dereuck.1@holbertonstudents.com', email: 'benjamin.dereuck.1@holbertonstudents.com', status: 'absent' },
+]);
+assert.equal(numberedEmailAliasRows.length, 1);
+assert.equal(numberedEmailAliasRows[0].status, 'on-time');
 
 assert.equal(calculateAttendance({ user: { signedinUser: { displayName: 'Ada' } } }, [
   { startTime: '2026-10-13T09:01:00.000Z' },
 ], eventStart).status, 'on-time');
+assert.equal(calculateAttendance({ user: { signedinUser: { displayName: 'Ada' } } }, [
+  { startTime: '2026-10-13T09:01:59.000Z' },
+], eventStart).status, 'on-time');
+assert.equal(calculateAttendance({ user: { signedinUser: { displayName: 'Ada' } } }, [
+  { startTime: '2026-10-13T09:02:00.000Z' },
+], eventStart).status, 'late');
 
 assert.deepEqual(calculateAttendance({ signedinUser: { displayName: 'Mickael Mur' } }, [
   { startTime: '2026-10-13T09:01:00.000Z' },

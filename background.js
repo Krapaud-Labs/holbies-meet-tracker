@@ -1,4 +1,6 @@
-const BACKEND_URL = 'https://walter-bringing-greatest-warming.trycloudflare.com';
+import './config.js';
+
+const BACKEND_URL = globalThis.HOLBIES_CONFIG?.liveBackendUrl || '';
 const CALENDAR_URL = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
 const MEET_RECORDS_URL = 'https://meet.googleapis.com/v2/conferenceRecords';
 const TRACKING_ALARM = 'holbies-meet-tracking';

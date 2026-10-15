@@ -34,7 +34,7 @@ const MEET_RECORDS_URL = 'https://meet.googleapis.com/v2/conferenceRecords';
 const GOOGLE_USERINFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo';
 const SHEETS_SCOPES = ['https://www.googleapis.com/auth/drive.file', 'https://www.googleapis.com/auth/spreadsheets'];
 // URL du tunnel HTTPS gratuit actuellement actif sur le VPS.
-const LIVE_BACKEND_URL = 'https://walter-bringing-greatest-warming.trycloudflare.com';
+const LIVE_BACKEND_URL = globalThis.HOLBIES_CONFIG?.liveBackendUrl || '';
 let currentAccessToken = null;
 let calendarLoadSerial = 0;
 let currentAttendanceRows = [];
@@ -42,6 +42,10 @@ let calendarEvents = [];
 let calendarCatalog = [];
 let liveSessionId = null;
 let livePollTimer = null;
+let liveSocket = null;
+let liveSocketReconnectTimer = null;
+let liveSocketReconnectAttempt = 0;
+let liveSocketStopped = false;
 const AUTH_TIMEOUT_MS = 15000;
 const LIVE_START_WINDOW_MS = 15 * 60 * 1000;
 const LIVE_END_GRACE_MS = 10 * 60 * 1000;
@@ -74,7 +78,13 @@ function withTimeout(promise, timeoutMs, errorCode) {
 
 function stopLiveTracking() {
   if (livePollTimer) clearInterval(livePollTimer);
+  if (liveSocketReconnectTimer) clearTimeout(liveSocketReconnectTimer);
+  if (liveSocket) liveSocket.close(1000, 'tracking-stopped');
   livePollTimer = null;
+  liveSocketReconnectTimer = null;
+  liveSocket = null;
+  liveSocketReconnectAttempt = 0;
+  liveSocketStopped = true;
   liveSessionId = null;
   liveIndicator.hidden = true;
   liveReportLink.hidden = true;
@@ -112,6 +122,8 @@ async function fetchMeetLiveSnapshot(recordName) {
 
 async function startLiveTracking(meetingId, scheduledStart, expectedParticipants) {
   if (!LIVE_BACKEND_URL || !currentAccessToken) return;
+  stopLiveTracking();
+  liveSocketStopped = false;
   try {
     const created = await fetchWithRetry(`${LIVE_BACKEND_URL}/api/v1/live/sessions`, {
       method: 'POST',
@@ -121,10 +133,10 @@ async function startLiveTracking(meetingId, scheduledStart, expectedParticipants
     const session = await created.json();
     liveSessionId = session.id;
     liveIndicator.hidden = false;
-    liveStatus.textContent = 'Présences actualisées toutes les 5 secondes.';
+    liveStatus.textContent = 'Connexion temps réel en cours…';
     liveReportLink.href = `${LIVE_BACKEND_URL}/reports/${encodeURIComponent(liveSessionId)}`;
     liveReportLink.hidden = false;
-    const refresh = async () => {
+    const refreshLiveSession = async () => {
       const snapshot = await fetchMeetLiveSnapshot(meetingId);
       await fetchWithRetry(`${LIVE_BACKEND_URL}/api/v1/live/sessions/${encodeURIComponent(liveSessionId)}/participants`, {
         method: 'PUT',
@@ -138,10 +150,92 @@ async function startLiveTracking(meetingId, scheduledStart, expectedParticipants
         status: formatAttendanceStatus(participant.status),
         lateMinutes: participant.lateMinutes || 0,
       }));
-      if (rows.length) renderAttendanceRows(rows);
+      renderLiveRows(rows);
     };
-    await refresh();
-    livePollTimer = setInterval(() => refresh().catch(() => {}), 5000);
+    const startPollingFallback = () => {
+      if (liveSocketStopped || livePollTimer) return;
+      liveStatus.textContent = 'Temps réel indisponible, actualisation toutes les 5 secondes.';
+      livePollTimer = setInterval(() => refreshLiveSession().catch(() => {}), 5000);
+    };
+    const stopPollingFallback = () => {
+      if (!livePollTimer) return;
+      clearInterval(livePollTimer);
+      livePollTimer = null;
+    };
+    const scheduleSocketReconnect = () => {
+      if (liveSocketStopped || liveSocketReconnectTimer) return;
+      const delay = Math.min(30_000, 1_000 * (2 ** liveSocketReconnectAttempt));
+      liveSocketReconnectAttempt += 1;
+      liveSocketReconnectTimer = setTimeout(() => {
+        liveSocketReconnectTimer = null;
+        connectLiveSocket();
+      }, delay);
+    };
+    const connectLiveSocket = async () => {
+      if (liveSocketStopped || !liveSessionId || typeof WebSocket === 'undefined') {
+        startPollingFallback();
+        return;
+      }
+      let ticketResponse;
+      try {
+        ticketResponse = await fetchWithRetry(`${LIVE_BACKEND_URL}/api/v1/live/sessions/${encodeURIComponent(liveSessionId)}/stream-ticket`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${currentAccessToken}` },
+        });
+        if (!ticketResponse.ok) throw new Error(`websocket-ticket-failed-${ticketResponse.status}`);
+      } catch {
+        startPollingFallback();
+        scheduleSocketReconnect();
+        return;
+      }
+      const { ticket } = await ticketResponse.json();
+      if (!ticket || liveSocketStopped) return;
+      const socketUrl = `${LIVE_BACKEND_URL.replace(/^http/i, 'ws')}/api/v1/live/sessions/${encodeURIComponent(liveSessionId)}/stream?ticket=${encodeURIComponent(ticket)}`;
+      let socket;
+      try {
+        socket = new WebSocket(socketUrl, ['holbies-live-v1']);
+      } catch {
+        startPollingFallback();
+        scheduleSocketReconnect();
+        return;
+      }
+      liveSocket = socket;
+      socket.addEventListener('open', () => {
+        if (liveSocket !== socket || liveSocketStopped) return;
+        liveSocketReconnectAttempt = 0;
+        stopPollingFallback();
+        liveStatus.textContent = 'Présences actualisées en temps réel.';
+      });
+      socket.addEventListener('message', (event) => {
+        if (liveSocket !== socket) return;
+        try {
+          const payload = JSON.parse(event.data);
+          const participantStatuses = payload.participantStatuses || payload.session?.participantStatuses;
+          if (!Array.isArray(participantStatuses)) return;
+          const rows = participantStatuses.map((participant) => ({
+            name: participant.name,
+            email: participant.email || '',
+            status: formatAttendanceStatus(participant.status),
+            lateMinutes: participant.lateMinutes || 0,
+          }));
+          renderLiveRows(rows);
+        } catch {
+          // Ignore malformed server messages and keep the connection alive.
+        }
+      });
+      socket.addEventListener('error', () => {
+        if (liveSocket === socket) startPollingFallback();
+      });
+      socket.addEventListener('close', () => {
+        if (liveSocket !== socket) return;
+        liveSocket = null;
+        startPollingFallback();
+        scheduleSocketReconnect();
+      });
+    };
+    await refreshLiveSession();
+    startPollingFallback();
+    connectLiveSocket();
   } catch (error) {
     liveStatus.textContent = `${describeLiveBackendError(error)} Le relevé Meet reste disponible localement.`;
   }
@@ -192,7 +286,13 @@ function escapeReportHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]));
 }
 
-function createLocalReportHtml(rows) {
+function formatReportTime(value) {
+  const text = String(value ?? '').trim();
+  const time = text.match(/\b(\d{1,2}:\d{2})(?::\d{2})?\b/);
+  return time ? time[1].padStart(5, '0') : '-';
+}
+
+function createLocalReportHtmlBase(rows) {
   const counts = rows.reduce((summary, row) => {
     const status = String(row.status || '').replace('’', "'");
     summary[status] = (summary[status] || 0) + 1;
@@ -282,6 +382,27 @@ function setCalendarPickerOpen(isOpen) {
   if (open) requestAnimationFrame(() => calendarPickerList.querySelector('input')?.focus());
 }
 
+function closeCalendarPicker({ restoreFocus = true } = {}) {
+  if (calendarMenu.hidden) return;
+  setCalendarPickerOpen(false);
+  if (restoreFocus) calendarSettingsButton.focus();
+}
+
+function trapCalendarPickerFocus(event) {
+  if (calendarMenu.hidden || event.key !== 'Tab') return;
+  const focusable = [...calendarMenu.querySelectorAll('input:not([disabled]), button:not([disabled])')];
+  if (focusable.length === 0) return;
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
+  }
+}
+
 async function refreshCalendar(token) {
   const serial = ++calendarLoadSerial;
   try {
@@ -316,6 +437,18 @@ function setAttendanceState(state, message) {
   attendanceStatus.setAttribute('aria-busy', String(state === 'loading'));
 }
 
+function clearAttendanceRows() {
+  currentAttendanceRows = [];
+  participantList.replaceChildren();
+  summaryOnTime.textContent = '0';
+  summaryLate.textContent = '0';
+  summaryAbsent.textContent = '0';
+  summaryWaiting.textContent = '0';
+  attendanceSummary.hidden = true;
+  exportButton.disabled = true;
+  htmlExportButton.hidden = true;
+}
+
 function renderAttendanceRows(rows) {
   currentAttendanceRows = rows;
   const counts = rows.reduce((summary, row) => {
@@ -335,6 +468,14 @@ function renderAttendanceRows(rows) {
 
 }
 
+function renderLiveRows(rows) {
+  const safeRows = MeetAttendance.mergeAttendanceRows(Array.isArray(rows) ? rows : []);
+  renderAttendanceRows(safeRows);
+  setAttendanceState(safeRows.length ? 'success' : 'empty', safeRows.length
+    ? `${safeRows.length} participant${safeRows.length > 1 ? 's' : ''} trouvé${safeRows.length > 1 ? 's' : ''}.`
+    : 'Aucun participant connecté actuellement.');
+}
+
 async function exportAttendanceToSheets() {
   if (!currentAccessToken || currentAttendanceRows.length === 0 || !exportConsent.checked) return;
 
@@ -352,6 +493,8 @@ async function exportAttendanceToSheets() {
     if (!createResponse.ok) throw new Error(`sheets-create-failed-${createResponse.status}`);
     const spreadsheet = await createResponse.json();
     if (!spreadsheet.spreadsheetId) throw new Error('sheets-missing-id');
+    const folderId = await findOrCreateSheetsFolder(currentAccessToken);
+    await moveDriveFileToFolder(spreadsheet.spreadsheetId, folderId, currentAccessToken);
     const values = exportValues();
     const sheetTitle = spreadsheet.sheets?.[0]?.properties?.title || 'Sheet1';
     const range = encodeURIComponent(`${sheetTitle}!A1:G${values.length}`);
@@ -361,7 +504,7 @@ async function exportAttendanceToSheets() {
       body: JSON.stringify({ range: `${sheetTitle}!A1:G${values.length}`, majorDimension: 'ROWS', values }),
     });
     if (!updateResponse.ok) throw new Error(`sheets-update-failed-${updateResponse.status}`);
-    setAttendanceState('success', 'Présences exportées dans une nouvelle feuille Google Sheets.');
+    setAttendanceState('success', 'Présences exportées dans le dossier Drive « Holbies Meet Tracker ».');
     exportButton.textContent = 'Exporter à nouveau';
   } catch (error) {
     const status = error?.message?.match(/request-failed-(\d+)/)?.[1];
@@ -379,6 +522,42 @@ async function exportAttendanceToSheets() {
     exportButton.setAttribute('aria-busy', 'false');
     exportButton.disabled = currentAttendanceRows.length === 0 || !exportConsent.checked;
   }
+}
+
+async function findOrCreateSheetsFolder(token) {
+  const query = encodeURIComponent("name = 'Holbies Meet Tracker' and mimeType = 'application/vnd.google-apps.folder' and trashed = false and 'root' in parents");
+  const listResponse = await fetchWithRetry(`https://www.googleapis.com/drive/v3/files?q=${query}&spaces=drive&pageSize=10&fields=files(id,name,mimeType,parents)`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!listResponse.ok) throw new Error(`drive-folder-list-failed-${listResponse.status}`);
+  const folders = await listResponse.json();
+  if (folders.files?.[0]?.id) return folders.files[0].id;
+
+  const createResponse = await fetchWithRetry('https://www.googleapis.com/drive/v3/files?fields=id,name,mimeType,parents', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: 'Holbies Meet Tracker', mimeType: 'application/vnd.google-apps.folder', parents: ['root'] }),
+  });
+  if (!createResponse.ok) throw new Error(`drive-folder-create-failed-${createResponse.status}`);
+  const folder = await createResponse.json();
+  if (!folder.id) throw new Error('drive-folder-missing-id');
+  return folder.id;
+}
+
+async function moveDriveFileToFolder(fileId, folderId, token) {
+  const metadataResponse = await fetchWithRetry(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?fields=id,parents`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!metadataResponse.ok) throw new Error(`drive-file-metadata-failed-${metadataResponse.status}`);
+  const metadata = await metadataResponse.json();
+  const oldParents = (metadata.parents || []).filter((parent) => parent !== folderId);
+  const params = new URLSearchParams({ addParents: folderId, fields: 'id,parents' });
+  if (oldParents.length) params.set('removeParents', oldParents.join(','));
+  const moveResponse = await fetchWithRetry(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?${params}`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!moveResponse.ok) throw new Error(`drive-file-move-failed-${moveResponse.status}`);
 }
 
 function prepareAttendanceView(event) {
@@ -512,9 +691,7 @@ async function analyzeMeeting(event) {
 
   setAttendanceState('loading', 'Recherche du compte rendu Meet…');
   stopLiveTracking();
-  participantList.replaceChildren();
-  currentAttendanceRows = [];
-  exportButton.disabled = true;
+  clearAttendanceRows();
 
   try {
     const filter = `space.meeting_code = "${meetingCode}"`;
@@ -548,8 +725,12 @@ async function analyzeMeeting(event) {
       };
     }));
 
-    const byEmail = new Map(participantRows.filter(Boolean).filter((row) => row.email).map((row) => [row.email, row]));
-    const byName = new Map(participantRows.filter(Boolean).map((row) => [normalizePersonName(row.name), row]));
+    // Fusionner d'abord les lignes Meet brutes. Une même personne peut être
+    // exposée plusieurs fois par conferenceRecords (alias e-mail, reconnexion
+    // ou ressource participant différente) avant le rapprochement Agenda.
+    const canonicalParticipantRows = MeetAttendance.mergeAttendanceRows(participantRows.filter(Boolean));
+    const byEmail = new Map(canonicalParticipantRows.filter((row) => row.email).map((row) => [row.email, row]));
+    const byName = new Map(canonicalParticipantRows.map((row) => [normalizePersonName(row.name), row]));
     const invitedRows = (event.attendees || [])
       .filter((attendee) => normalizeEmail(attendee.email))
       .map((attendee) => {
@@ -560,7 +741,10 @@ async function analyzeMeeting(event) {
           || byName.get(normalizePersonName(attendeeName))
           || byName.get(normalizePersonName(emailName));
         const name = splitName(match?.name || attendee.displayName || attendee.email);
-        return match || {
+        if (match) {
+          return { ...match, email: match.email || email };
+        }
+        return {
           ...name,
           name: attendee.displayName || attendee.email,
           email,
@@ -569,9 +753,10 @@ async function analyzeMeeting(event) {
           departure: '',
         };
       });
-    const invitedEmails = new Set(invitedRows.map((row) => row.email));
-    const unidentifiedRows = participantRows.filter((row) => row && (!row.email || !invitedEmails.has(row.email)));
-    const rows = MeetAttendance.mergeAttendanceRows([...invitedRows, ...unidentifiedRows]).map((row) => ({
+    // Le roster Agenda est la source de vérité : les lignes Meet non
+    // rapprochées sont des invités externes ou des alias incomplets et ne
+    // doivent pas gonfler les compteurs étudiants.
+    const rows = MeetAttendance.mergeAttendanceRows(invitedRows).map((row) => ({
       ...row,
       date: formatEventDate(event),
       meeting: event.summary || 'Réunion Google Meet',
@@ -586,7 +771,7 @@ async function analyzeMeeting(event) {
       : 'Aucun participant dans ce compte rendu.');
   } catch (error) {
     currentAttendanceRows = [];
-    exportButton.disabled = true;
+    clearAttendanceRows();
     const message = error.name === 'AbortError'
       ? 'La recherche Meet a dépassé le délai prévu.'
       : error.message?.startsWith('meet-request-failed-401')
@@ -602,7 +787,7 @@ async function analyzeMeeting(event) {
   }
 }
 
-function renderEvents(events) {
+function renderEvents(events, nowMs = Date.now()) {
   eventList.replaceChildren();
 
   events.forEach((event) => {
@@ -624,6 +809,13 @@ function renderEvents(events) {
     date.className = 'event-date';
     date.textContent = formatEventDate(event);
 
+    const status = document.createElement('span');
+    status.className = 'event-status';
+    const eventStatus = HolbiesCalendar.getEventStatus(event, nowMs);
+    status.dataset.status = eventStatus.toLowerCase();
+    status.textContent = eventStatus;
+    status.setAttribute('aria-label', `Statut : ${eventStatus}`);
+
     const actions = document.createElement('div');
     actions.className = 'event-actions';
 
@@ -640,13 +832,14 @@ function renderEvents(events) {
       actions.append(analyzeButton);
     }
 
-    item.append(title, date, actions);
+    item.append(title, date, status, actions);
     eventList.append(item);
   });
 }
 
 async function loadCalendarEvents(token) {
   setCalendarState('loading', 'Chargement de votre agenda…');
+  calendarEvents = [];
   eventList.replaceChildren();
 
   const now = new Date();
@@ -720,10 +913,10 @@ async function loadCalendarEvents(token) {
 
   const events = HolbiesCalendar.filterVisibleAgendaEvents(calendarItems, now.getTime());
   calendarEvents = events;
-  renderEvents(events);
+  renderEvents(events, now.getTime());
 
   if (events.length === 0) {
-    setCalendarState('empty', 'Aucun événement récent ou prochain.');
+    setCalendarState('empty', 'Aucun événement prévu aujourd’hui.');
     return;
   }
 
@@ -768,11 +961,9 @@ function setLoading(isLoading) {
 function resetSession() {
   stopLiveTracking();
   currentAccessToken = null;
-  currentAttendanceRows = [];
-  participantList.replaceChildren();
+  clearAttendanceRows();
   eventList.replaceChildren();
   exportConsent.checked = false;
-  exportButton.disabled = true;
   localExportButton.hidden = true;
   signOutButton.hidden = true;
   signInButton.hidden = false;
@@ -873,14 +1064,12 @@ calendarRefreshButton.addEventListener('click', () => {
 });
 document.addEventListener('click', (event) => {
   if (!calendarMenu.hidden && !calendarMenu.contains(event.target) && !calendarSettingsButton.contains(event.target)) {
-    setCalendarPickerOpen(false);
+    closeCalendarPicker();
   }
 });
 document.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape' && !calendarMenu.hidden) {
-    setCalendarPickerOpen(false);
-    calendarSettingsButton.focus();
-  }
+  if (event.key === 'Escape' && !calendarMenu.hidden) closeCalendarPicker();
+  else trapCalendarPickerFocus(event);
 });
 exportConsent.addEventListener('change', () => {
   exportButton.disabled = currentAttendanceRows.length === 0 || !exportConsent.checked;

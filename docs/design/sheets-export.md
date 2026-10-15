@@ -1,6 +1,6 @@
 # Export Google Sheets
 
-L'export crée une nouvelle feuille via `spreadsheets.create`, puis écrit les colonnes `Prénom`, `Nom`, `Date`, `Réunion`, `Arrivée`, `Départ` et `Statut` avec `spreadsheets.values.update`. Les données sont préparées en mémoire dans la popup et ne sont pas stockées par l'extension.
+L'export crée une nouvelle feuille via `spreadsheets.create`, retrouve ou crée le dossier Drive racine `Holbies Meet Tracker`, déplace la feuille dans ce dossier via l'API Drive, puis écrit les colonnes `Prénom`, `Nom`, `Date`, `Réunion`, `Arrivée`, `Départ` et `Statut` avec `spreadsheets.values.update`. Les données sont préparées en mémoire dans la popup et ne sont pas stockées par l'extension.
 
 L'export reste désactivé jusqu'à un consentement explicite dans la popup. L'utilisateur est responsable de la finalité du suivi, des destinataires, de la durée de conservation et de la suppression de la feuille créée. Le bouton de déconnexion invalide le token courant et vide les résultats de la popup.
 
@@ -8,6 +8,6 @@ Chaque appel Sheets est tenté deux fois. Si la création ou l'écriture échoue
 
 Les invités Agenda sont comparés aux participants Meet par adresse e-mail lorsqu'elle est fournie par l'API. Un invité sans correspondance reçoit le statut `absent`; les participants sans e-mail restent affichés comme identités à vérifier.
 
-Le fichier est créé dans le Drive du compte connecté. Le MVP ne partage pas automatiquement la feuille et ne conserve pas son identifiant. L'accès, la durée de conservation et la suppression doivent être validés avant un usage institutionnel.
+Le fichier est créé dans le dossier `Holbies Meet Tracker` du Drive du compte connecté. Le MVP ne partage pas automatiquement la feuille et ne conserve pas son identifiant. Si le dossier ne peut pas être lu ou créé, l'export échoue explicitement et propose le CSV local, sans laisser la feuille à la racine. L'accès, la durée de conservation et la suppression doivent être validés avant un usage institutionnel.
 
-Le scope `spreadsheets` est demandé en plus de `drive.file` afin d'autoriser l'écriture dans la feuille créée par l'extension. Sources : [spreadsheets.create](https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets/create) et [values.update](https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets.values/update).
+Les scopes `spreadsheets` et `drive.file` sont demandés ensemble au moment de l'export afin d'autoriser l'écriture dans la feuille créée par l'extension et son rangement dans le dossier créé ou géré par l'extension. Sources : [spreadsheets.create](https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets/create), [values.update](https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets.values/update), [files.list](https://developers.google.com/drive/api/reference/rest/v3/files/list), [files.create](https://developers.google.com/drive/api/reference/rest/v3/files/create) et [files.update](https://developers.google.com/drive/api/reference/rest/v3/files/update).

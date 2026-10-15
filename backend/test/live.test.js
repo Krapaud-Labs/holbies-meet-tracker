@@ -21,12 +21,13 @@ test('calculates late status and minutes', () => {
 });
 
 test('keeps a small delay on time', () => {
-  const result = calculateStatus('2026-10-13T09:02:00Z', '2026-10-13T09:00:00Z');
+  const result = calculateStatus('2026-10-13T09:01:59Z', '2026-10-13T09:00:00Z');
   assert.deepEqual(result, { status: 'on-time', lateMinutes: 0 });
 });
 
-test('keeps the exact tolerance boundary stable', () => {
-  assert.deepEqual(calculateStatus('2026-10-13T09:47:00Z', '2026-10-13T09:45:00Z'), { status: 'on-time', lateMinutes: 0 });
+test('counts exactly two minutes as late', () => {
+  assert.deepEqual(calculateStatus('2026-10-13T09:46:59Z', '2026-10-13T09:45:00Z'), { status: 'on-time', lateMinutes: 0 });
+  assert.deepEqual(calculateStatus('2026-10-13T09:47:00Z', '2026-10-13T09:45:00Z'), { status: 'late', lateMinutes: 2 });
   assert.deepEqual(calculateStatus('2026-10-13T09:47:01Z', '2026-10-13T09:45:00Z'), { status: 'late', lateMinutes: 3 });
 });
 
@@ -127,4 +128,19 @@ test('merges an ID email and nominative email into one live identity', () => {
   assert.equal(statuses.length, 1);
   assert.equal(statuses[0].status, 'on-time');
   assert.equal(statuses[0].joinedAt, '2026-10-13T09:46:00Z');
+});
+
+test('deduplicates ID and nominative aliases across live events', () => {
+  const session = { scheduledStart: '2026-10-13T09:45:00Z', participants: [] };
+  applyMeetEvent(session, {
+    type: 'google.workspace.meet.participant.v2.joined',
+    participantSession: { email: '14000@holbertonstudents.com', displayName: 'Pierre Cardin', startTime: '2026-10-13T09:46:00Z' },
+  });
+  applyMeetEvent(session, {
+    type: 'google.workspace.meet.participant.v2.joined',
+    participantSession: { email: 'pierre.cardin@holbertonstudents.com', displayName: 'Pierre Cardin', startTime: '2026-10-13T09:47:00Z' },
+  });
+  assert.equal(session.participants.length, 1);
+  assert.equal(session.participants[0].joinedAt, '2026-10-13T09:46:00Z');
+  assert.equal(session.participants[0].status, 'on-time');
 });

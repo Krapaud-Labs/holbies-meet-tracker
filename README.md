@@ -1,5 +1,7 @@
 # Holbies Meet Tracker
 
+La déduplication fusionne aussi les alias nominatifs suffixés par un numéro, par exemple `prenom.nom.1@holbertonstudents.com`, avec l'identité nominative correspondante. Cela évite de compter deux fois un étudiant lorsqu'une reconnexion ou une variante Google crée ce type d'adresse.
+
 Extension Chrome Manifest V3 pour préparer le suivi de présence des réunions Google Meet.
 
 ## Interface
@@ -19,6 +21,8 @@ Après toute analyse, le bouton « Télécharger le rapport HTML » génère aus
 Le bouton de connexion lance désormais le consentement Google via `chrome.identity` après une action explicite. Après connexion, et lors des réouvertures si Chrome possède encore un token valide, l'adresse du compte connecté est affichée dans la popup et le bouton de connexion laisse place à l'action de déconnexion, sans message de statut redondant. Les scopes retournés sont vérifiés et aucun token n'est persisté par l'extension. Voir [le parcours OAuth](docs/design/oauth-flow.md) pour les limites actuelles.
 
 ## Backend Live VPS
+
+Le suivi live utilise le WebSocket sécurisé `/api/v1/live/sessions/{id}/stream` quand il est disponible. La popup échange d'abord le jeton Google contre un ticket éphémère à usage unique, puis négocie uniquement le sous-protocole `holbies-live-v1` avec ce ticket. Elle reçoit les changements en temps réel et revient automatiquement au polling avec reconnexion progressive en cas de coupure. Le ticket expire après 30 secondes et le jeton Google n'est jamais transmis dans la connexion WebSocket.
 
 Le service worker MV3 lance aussi un cycle périodique gratuit sur les réunions Agenda proches. Il crée la session et envoie les snapshots Meet même si la popup est fermée ou si le mentor ne rejoint pas la réunion. Le navigateur doit rester ouvert et le consentement Google doit avoir été accordé au moins une fois.
 Après la fin prévue dans Agenda, il attend dix minutes avant de clôturer la session et de calculer les absents. Cette marge protège les réunions qui débordent ; elle ne déclare jamais absent un invité pendant la réunion active.
