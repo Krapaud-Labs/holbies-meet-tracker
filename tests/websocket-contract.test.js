@@ -5,10 +5,15 @@ import test from 'node:test';
 const popupSource = await readFile(new URL('../popup.js', import.meta.url), 'utf8');
 const backgroundSource = await readFile(new URL('../background.js', import.meta.url), 'utf8');
 
-test('extension opens a WebSocket for a live session', () => {
+test('extension exchanges its Google token for a one-time WebSocket ticket', () => {
+  assert.match(popupSource, /stream-ticket/);
+  assert.match(popupSource, /const \{ ticket \} = await ticketResponse\.json\(\)/);
   assert.match(popupSource, /new\s+WebSocket\s*\(/, 'popup must open a WebSocket connection');
   assert.match(popupSource, /onopen|addEventListener\(['"]open/i, 'popup must handle WebSocket connection success');
   assert.match(popupSource, /replace\(\/\^http\/i, ['"]ws['"]\)/, 'WebSocket URL must derive ws or wss from the HTTPS backend');
+  assert.match(popupSource, /\?ticket=\$\{encodeURIComponent\(ticket\)\}/);
+  assert.match(popupSource, /new WebSocket\(socketUrl, \['holbies-live-v1'\]\)/);
+  assert.doesNotMatch(popupSource, /bearer\.\$\{currentAccessToken\}/);
 });
 
 test('extension applies incoming live updates to the presence view', () => {
