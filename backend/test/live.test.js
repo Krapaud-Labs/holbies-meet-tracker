@@ -21,12 +21,13 @@ test('calculates late status and minutes', () => {
 });
 
 test('keeps a small delay on time', () => {
-  const result = calculateStatus('2026-10-13T09:02:00Z', '2026-10-13T09:00:00Z');
+  const result = calculateStatus('2026-10-13T09:01:59Z', '2026-10-13T09:00:00Z');
   assert.deepEqual(result, { status: 'on-time', lateMinutes: 0 });
 });
 
-test('keeps the exact tolerance boundary stable', () => {
-  assert.deepEqual(calculateStatus('2026-10-13T09:47:00Z', '2026-10-13T09:45:00Z'), { status: 'on-time', lateMinutes: 0 });
+test('counts exactly two minutes as late', () => {
+  assert.deepEqual(calculateStatus('2026-10-13T09:46:59Z', '2026-10-13T09:45:00Z'), { status: 'on-time', lateMinutes: 0 });
+  assert.deepEqual(calculateStatus('2026-10-13T09:47:00Z', '2026-10-13T09:45:00Z'), { status: 'late', lateMinutes: 2 });
   assert.deepEqual(calculateStatus('2026-10-13T09:47:01Z', '2026-10-13T09:45:00Z'), { status: 'late', lateMinutes: 3 });
 });
 

@@ -170,8 +170,9 @@ function calculateStatus(joinedAt, scheduledStart, toleranceMinutes = 2) {
   const joined = Date.parse(joinedAt || '');
   const start = Date.parse(scheduledStart || '');
   if (Number.isNaN(joined) || Number.isNaN(start)) return { status: 'unknown', lateMinutes: 0 };
-  const lateMinutes = Math.max(0, Math.ceil((joined - start) / 60000));
-  return lateMinutes > toleranceMinutes
+  const elapsedMs = joined - start;
+  const lateMinutes = Math.max(0, Math.ceil(elapsedMs / 60000));
+  return elapsedMs >= toleranceMinutes * 60000
     ? { status: 'late', lateMinutes }
     : { status: 'on-time', lateMinutes: 0 };
 }

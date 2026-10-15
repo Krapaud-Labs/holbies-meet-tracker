@@ -26,6 +26,12 @@ assert.ok(getAttendanceIdentityKeys({ name: 'Pierre Cardin', email: 'pierre.card
 assert.equal(calculateAttendance({ user: { signedinUser: { displayName: 'Ada' } } }, [
   { startTime: '2026-10-13T09:01:00.000Z' },
 ], eventStart).status, 'on-time');
+assert.equal(calculateAttendance({ user: { signedinUser: { displayName: 'Ada' } } }, [
+  { startTime: '2026-10-13T09:01:59.000Z' },
+], eventStart).status, 'on-time');
+assert.equal(calculateAttendance({ user: { signedinUser: { displayName: 'Ada' } } }, [
+  { startTime: '2026-10-13T09:02:00.000Z' },
+], eventStart).status, 'late');
 
 assert.deepEqual(calculateAttendance({ signedinUser: { displayName: 'Mickael Mur' } }, [
   { startTime: '2026-10-13T09:01:00.000Z' },
