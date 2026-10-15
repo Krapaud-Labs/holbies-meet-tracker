@@ -1,5 +1,7 @@
 # Holbies Meet Tracker
 
+La déduplication fusionne aussi les alias nominatifs suffixés par un numéro, par exemple `prenom.nom.1@holbertonstudents.com`, avec l'identité nominative correspondante. Cela évite de compter deux fois un étudiant lorsqu'une reconnexion ou une variante Google crée ce type d'adresse.
+
 Extension Chrome Manifest V3 pour préparer le suivi de présence des réunions Google Meet.
 
 ## Interface
