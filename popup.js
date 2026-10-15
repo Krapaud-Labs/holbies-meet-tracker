@@ -16,6 +16,7 @@ const attendanceStatus = document.querySelector('#attendance-status');
 const analyzeOpenMeetButton = document.querySelector('#analyze-open-meet-button');
 const participantList = document.querySelector('#participant-list');
 const exportButton = document.querySelector('#export-button');
+const htmlExportButton = document.querySelector('#html-export-button');
 const exportConsent = document.querySelector('#export-consent');
 const localExportButton = document.querySelector('#local-export-button');
 const attendanceSummary = document.querySelector('#attendance-summary');
@@ -47,13 +48,7 @@ const LIVE_END_GRACE_MS = 10 * 60 * 1000;
 
 liveReportLink.addEventListener('click', async (event) => {
   event.preventDefault();
-  if (!currentAccessToken || !liveReportLink.href) return;
-
-  const reportWindow = window.open('about:blank', '_blank');
-  if (!reportWindow) {
-    liveStatus.textContent = 'Autorisez les fenêtres pop-up pour ouvrir le rapport.';
-    return;
-  }
+  if (!currentAccessToken || !liveSessionId) return;
 
   try {
     const response = await fetchWithRetry(liveReportLink.href, {
@@ -61,11 +56,10 @@ liveReportLink.addEventListener('click', async (event) => {
     });
     if (!response.ok) throw new Error(`report-request-failed-${response.status}`);
     const reportHtml = await response.text();
-    reportWindow.document.open();
-    reportWindow.document.write(reportHtml);
-    reportWindow.document.close();
-  } catch {
-    reportWindow.close();
+    const reportUrl = URL.createObjectURL(new Blob([reportHtml], { type: 'text/html;charset=utf-8' }));
+    await chrome.tabs.create({ url: reportUrl });
+    setTimeout(() => URL.revokeObjectURL(reportUrl), 60_000);
+  } catch (error) {
     liveStatus.textContent = 'Rapport live indisponible. Actualisez la session et réessayez.';
   }
 });
@@ -194,6 +188,32 @@ function downloadLocalCsv() {
   chrome.downloads.download({ url, filename: `holbies-meet-presences-${new Date().toISOString().slice(0, 10)}.csv`, saveAs: true });
 }
 
+function escapeReportHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]));
+}
+
+function createLocalReportHtml(rows) {
+  const counts = rows.reduce((summary, row) => {
+    summary[row.status] = (summary[row.status] || 0) + 1;
+    return summary;
+  }, {});
+  const title = rows[0]?.meeting || 'Rapport de réunion Google Meet';
+  const tableRows = rows.map((row) => `<tr><td>${escapeReportHtml(row.name || `${row.firstName || ''} ${row.lastName || ''}`.trim())}</td><td>${escapeReportHtml(row.email || '')}</td><td class="${row.status === 'en retard' ? 'late' : row.status === 'absent' ? 'absent' : ''}">${escapeReportHtml(row.status)}</td><td>${escapeReportHtml(row.arrival || '-')}</td></tr>`).join('');
+  return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><title>${escapeReportHtml(title)}</title><style>:root{color-scheme:light dark;--bg:#fff7f8;--panel:#fff;--ink:#24101b;--muted:#704c59;--line:#efd8df;--accent:#d7194f}@media(prefers-color-scheme:dark){:root{--bg:#160b12;--panel:#24101b;--ink:#fff5f7;--muted:#d5b8c2;--line:#683345;--accent:#ff2d55}}*{box-sizing:border-box}body{margin:0;padding:clamp(18px,4vw,48px);background:var(--bg);color:var(--ink);font:16px Arial,sans-serif}main{max-width:1100px;margin:auto}h1{margin:0 0 8px}p{color:var(--muted)}.summary{display:flex;gap:12px;flex-wrap:wrap}.summary span{padding:12px 16px;border:1px solid var(--line);border-top:3px solid var(--accent);background:var(--panel);border-radius:10px}section{margin-top:24px;padding:20px;background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:auto}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:12px 10px;border-bottom:1px solid var(--line);white-space:nowrap}th{color:var(--muted);font-size:12px;text-transform:uppercase}.late{color:var(--accent);font-weight:700}.absent{color:var(--muted);font-weight:700}</style></head><body><main><h1>${escapeReportHtml(title)}</h1><p>Rapport local Holbies Meet · ${escapeReportHtml(rows[0]?.date || new Date().toLocaleString('fr-FR'))}</p><div class="summary"><span>À l'heure : ${counts["à l'heure"] || 0}</span><span>En retard : ${counts["en retard"] || 0}</span><span>En attente : ${counts["en attente"] || 0}</span><span>Absents : ${counts.absent || 0}</span></div><section><table><thead><tr><th>Participant</th><th>Email</th><th>Statut</th><th>Arrivée</th></tr></thead><tbody>${tableRows}</tbody></table></section></main></body></html>`;
+}
+
+async function exportAttendanceToHtml() {
+  if (!currentAttendanceRows.length) return;
+  const reportUrl = URL.createObjectURL(new Blob([createLocalReportHtml(currentAttendanceRows)], { type: 'text/html;charset=utf-8' }));
+  try {
+    await chrome.tabs.create({ url: reportUrl });
+    setTimeout(() => URL.revokeObjectURL(reportUrl), 60_000);
+  } catch {
+    URL.revokeObjectURL(reportUrl);
+    setAttendanceState('unavailable', 'Ouverture du rapport HTML impossible. Autorisez les nouveaux onglets Chrome puis réessayez.');
+  }
+}
+
 async function fetchWithRetry(url, options, attempts = 2) {
   let lastError;
   for (let attempt = 0; attempt < attempts; attempt += 1) {
@@ -311,6 +331,7 @@ function renderAttendanceRows(rows) {
   summaryWaiting.textContent = String(counts.waiting);
   attendanceSummary.hidden = rows.length === 0;
   exportButton.disabled = rows.length === 0 || !exportConsent.checked;
+  htmlExportButton.hidden = rows.length === 0;
 
   rows.forEach((row) => {
     const item = document.createElement('li');
@@ -381,6 +402,7 @@ function prepareAttendanceView(event) {
   currentAttendanceRows = [];
   attendanceSummary.hidden = true;
   exportButton.disabled = true;
+  htmlExportButton.hidden = true;
   if (!getMeetingLink(event)) {
     setAttendanceState('unavailable', 'Aucun lien Google Meet pour cet événement.');
     return;
@@ -881,6 +903,7 @@ exportConsent.addEventListener('change', () => {
   exportButton.disabled = currentAttendanceRows.length === 0 || !exportConsent.checked;
 });
 localExportButton.addEventListener('click', downloadLocalCsv);
+htmlExportButton.addEventListener('click', exportAttendanceToHtml);
 exportButton.addEventListener('click', exportAttendanceToSheets);
 restoreGoogleSession();
 showBackgroundTrackingStatus().catch(() => {});
