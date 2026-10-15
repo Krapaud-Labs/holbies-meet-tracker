@@ -450,15 +450,9 @@ function clearAttendanceRows() {
 }
 
 function renderAttendanceRows(rows) {
-<<<<<<< HEAD
-  currentAttendanceRows = rows;
-  const counts = rows.reduce((summary, row) => {
-=======
   const safeRows = MeetAttendance.mergeAttendanceRows(Array.isArray(rows) ? rows : []);
   currentAttendanceRows = safeRows;
-  participantList.replaceChildren();
   const counts = safeRows.reduce((summary, row) => {
->>>>>>> 99827dc (fix(audit): align live identity and report validation)
     if (row.status === 'à l’heure') summary.onTime += 1;
     else if (row.status === 'en retard') summary.late += 1;
     else if (row.status === 'absent') summary.absent += 1;
@@ -469,9 +463,9 @@ function renderAttendanceRows(rows) {
   summaryLate.textContent = String(counts.late);
   summaryAbsent.textContent = String(counts.absent);
   summaryWaiting.textContent = String(counts.waiting);
-  attendanceSummary.hidden = rows.length === 0;
-  exportButton.disabled = rows.length === 0 || !exportConsent.checked;
-  htmlExportButton.hidden = rows.length === 0;
+  attendanceSummary.hidden = safeRows.length === 0;
+  exportButton.disabled = safeRows.length === 0 || !exportConsent.checked;
+  htmlExportButton.hidden = safeRows.length === 0;
 
 }
 
