@@ -34,7 +34,7 @@ const MEET_RECORDS_URL = 'https://meet.googleapis.com/v2/conferenceRecords';
 const GOOGLE_USERINFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo';
 const SHEETS_SCOPES = ['https://www.googleapis.com/auth/drive.file', 'https://www.googleapis.com/auth/spreadsheets'];
 // URL du tunnel HTTPS gratuit actuellement actif sur le VPS.
-const LIVE_BACKEND_URL = 'https://walter-bringing-greatest-warming.trycloudflare.com';
+const LIVE_BACKEND_URL = 'https://sleeve-constitutes-stripes-sequence.trycloudflare.com';
 let currentAccessToken = null;
 let calendarLoadSerial = 0;
 let currentAttendanceRows = [];
