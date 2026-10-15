@@ -113,7 +113,7 @@
     }
 
     const start = Date.parse(eventStart || '');
-    const status = Number.isNaN(start) || window.firstJoin > start + LATE_TOLERANCE_MS
+    const status = Number.isNaN(start) || window.firstJoin >= start + LATE_TOLERANCE_MS
       ? 'late'
       : 'on-time';
 
