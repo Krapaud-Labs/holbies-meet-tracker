@@ -28,6 +28,10 @@
     if (/^\d{4,5}@holbertonstudents\.com$/.test(email)) keys.add(`student-id:${localPart}`);
     if (localPart && !/^\d{4,5}$/.test(localPart) && email.endsWith('@holbertonstudents.com')) {
       keys.add(`name:${normalizePersonName(localPart.replace(/[._-]+/g, ' '))}`);
+      const numberedAlias = localPart.match(/^(.+?)\.\d+$/);
+      if (numberedAlias) {
+        keys.add(`name:${normalizePersonName(numberedAlias[1].replace(/[._-]+/g, ' '))}`);
+      }
     }
     const name = normalizePersonName(row?.name);
     if (name && !name.includes('@') && name !== 'participant inconnu') keys.add(`name:${name}`);
