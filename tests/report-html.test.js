@@ -16,5 +16,9 @@ assert.match(popup, /data-column="arrival"/);
 assert.match(popup, /id="print-report"/);
 assert.match(popup, /window\.print\(\)/);
 assert.match(popup, /@media print/);
+assert.match(popup, /findOrCreateSheetsFolder/);
+assert.match(popup, /mimeType = 'application\/vnd\.google-apps\.folder'/);
+assert.match(popup, /moveDriveFileToFolder/);
+assert.match(popup, /drive\/v3\/files/);
 
 console.log('report HTML column filters are wired');

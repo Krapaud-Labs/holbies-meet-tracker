@@ -358,6 +358,8 @@ async function exportAttendanceToSheets() {
     if (!createResponse.ok) throw new Error(`sheets-create-failed-${createResponse.status}`);
     const spreadsheet = await createResponse.json();
     if (!spreadsheet.spreadsheetId) throw new Error('sheets-missing-id');
+    const folderId = await findOrCreateSheetsFolder(currentAccessToken);
+    await moveDriveFileToFolder(spreadsheet.spreadsheetId, folderId, currentAccessToken);
     const values = exportValues();
     const sheetTitle = spreadsheet.sheets?.[0]?.properties?.title || 'Sheet1';
     const range = encodeURIComponent(`${sheetTitle}!A1:G${values.length}`);
@@ -367,7 +369,7 @@ async function exportAttendanceToSheets() {
       body: JSON.stringify({ range: `${sheetTitle}!A1:G${values.length}`, majorDimension: 'ROWS', values }),
     });
     if (!updateResponse.ok) throw new Error(`sheets-update-failed-${updateResponse.status}`);
-    setAttendanceState('success', 'Présences exportées dans une nouvelle feuille Google Sheets.');
+    setAttendanceState('success', 'Présences exportées dans le dossier Drive « Holbies Meet Tracker ».');
     exportButton.textContent = 'Exporter à nouveau';
   } catch (error) {
     const status = error?.message?.match(/request-failed-(\d+)/)?.[1];
@@ -385,6 +387,42 @@ async function exportAttendanceToSheets() {
     exportButton.setAttribute('aria-busy', 'false');
     exportButton.disabled = currentAttendanceRows.length === 0 || !exportConsent.checked;
   }
+}
+
+async function findOrCreateSheetsFolder(token) {
+  const query = encodeURIComponent("name = 'Holbies Meet Tracker' and mimeType = 'application/vnd.google-apps.folder' and trashed = false and 'root' in parents");
+  const listResponse = await fetchWithRetry(`https://www.googleapis.com/drive/v3/files?q=${query}&spaces=drive&pageSize=10&fields=files(id,name,mimeType,parents)`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!listResponse.ok) throw new Error(`drive-folder-list-failed-${listResponse.status}`);
+  const folders = await listResponse.json();
+  if (folders.files?.[0]?.id) return folders.files[0].id;
+
+  const createResponse = await fetchWithRetry('https://www.googleapis.com/drive/v3/files?fields=id,name,mimeType,parents', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: 'Holbies Meet Tracker', mimeType: 'application/vnd.google-apps.folder', parents: ['root'] }),
+  });
+  if (!createResponse.ok) throw new Error(`drive-folder-create-failed-${createResponse.status}`);
+  const folder = await createResponse.json();
+  if (!folder.id) throw new Error('drive-folder-missing-id');
+  return folder.id;
+}
+
+async function moveDriveFileToFolder(fileId, folderId, token) {
+  const metadataResponse = await fetchWithRetry(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?fields=id,parents`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!metadataResponse.ok) throw new Error(`drive-file-metadata-failed-${metadataResponse.status}`);
+  const metadata = await metadataResponse.json();
+  const oldParents = (metadata.parents || []).filter((parent) => parent !== folderId);
+  const params = new URLSearchParams({ addParents: folderId, fields: 'id,parents' });
+  if (oldParents.length) params.set('removeParents', oldParents.join(','));
+  const moveResponse = await fetchWithRetry(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?${params}`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!moveResponse.ok) throw new Error(`drive-file-move-failed-${moveResponse.status}`);
 }
 
 function prepareAttendanceView(event) {
