@@ -34,7 +34,7 @@ const MEET_RECORDS_URL = 'https://meet.googleapis.com/v2/conferenceRecords';
 const GOOGLE_USERINFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo';
 const SHEETS_SCOPES = ['https://www.googleapis.com/auth/drive.file', 'https://www.googleapis.com/auth/spreadsheets'];
 // URL du tunnel HTTPS gratuit actuellement actif sur le VPS.
-const LIVE_BACKEND_URL = 'https://sleeve-constitutes-stripes-sequence.trycloudflare.com';
+const LIVE_BACKEND_URL = globalThis.HOLBIES_CONFIG?.liveBackendUrl || '';
 let currentAccessToken = null;
 let calendarLoadSerial = 0;
 let currentAttendanceRows = [];
@@ -150,7 +150,7 @@ async function startLiveTracking(meetingId, scheduledStart, expectedParticipants
         status: formatAttendanceStatus(participant.status),
         lateMinutes: participant.lateMinutes || 0,
       }));
-      if (rows.length) renderAttendanceRows(rows);
+      renderLiveRows(rows);
     };
     const startPollingFallback = () => {
       if (liveSocketStopped || livePollTimer) return;
@@ -218,7 +218,7 @@ async function startLiveTracking(meetingId, scheduledStart, expectedParticipants
             status: formatAttendanceStatus(participant.status),
             lateMinutes: participant.lateMinutes || 0,
           }));
-          if (rows.length) renderAttendanceRows(rows);
+          renderLiveRows(rows);
         } catch {
           // Ignore malformed server messages and keep the connection alive.
         }
@@ -388,6 +388,27 @@ function setCalendarPickerOpen(isOpen) {
   if (open) requestAnimationFrame(() => calendarPickerList.querySelector('input')?.focus());
 }
 
+function closeCalendarPicker({ restoreFocus = true } = {}) {
+  if (calendarMenu.hidden) return;
+  setCalendarPickerOpen(false);
+  if (restoreFocus) calendarSettingsButton.focus();
+}
+
+function trapCalendarPickerFocus(event) {
+  if (calendarMenu.hidden || event.key !== 'Tab') return;
+  const focusable = [...calendarMenu.querySelectorAll('input:not([disabled]), button:not([disabled])')];
+  if (focusable.length === 0) return;
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
+  }
+}
+
 async function refreshCalendar(token) {
   const serial = ++calendarLoadSerial;
   try {
@@ -422,9 +443,23 @@ function setAttendanceState(state, message) {
   attendanceStatus.setAttribute('aria-busy', String(state === 'loading'));
 }
 
+function clearAttendanceRows() {
+  currentAttendanceRows = [];
+  participantList.replaceChildren();
+  summaryOnTime.textContent = '0';
+  summaryLate.textContent = '0';
+  summaryAbsent.textContent = '0';
+  summaryWaiting.textContent = '0';
+  attendanceSummary.hidden = true;
+  exportButton.disabled = true;
+  htmlExportButton.hidden = true;
+}
+
 function renderAttendanceRows(rows) {
-  currentAttendanceRows = rows;
-  const counts = rows.reduce((summary, row) => {
+  const safeRows = Array.isArray(rows) ? rows : [];
+  currentAttendanceRows = safeRows;
+  participantList.replaceChildren();
+  const counts = safeRows.reduce((summary, row) => {
     if (row.status === 'à l’heure') summary.onTime += 1;
     else if (row.status === 'en retard') summary.late += 1;
     else if (row.status === 'absent') summary.absent += 1;
@@ -435,10 +470,29 @@ function renderAttendanceRows(rows) {
   summaryLate.textContent = String(counts.late);
   summaryAbsent.textContent = String(counts.absent);
   summaryWaiting.textContent = String(counts.waiting);
-  attendanceSummary.hidden = rows.length === 0;
-  exportButton.disabled = rows.length === 0 || !exportConsent.checked;
-  htmlExportButton.hidden = rows.length === 0;
+  attendanceSummary.hidden = safeRows.length === 0;
+  exportButton.disabled = safeRows.length === 0 || !exportConsent.checked;
+  htmlExportButton.hidden = safeRows.length === 0;
+  safeRows.forEach((row) => {
+    const item = document.createElement('li');
+    item.className = 'participant-item';
+    const name = document.createElement('span');
+    name.className = 'participant-name';
+    name.textContent = row.name || `${row.firstName || ''} ${row.lastName || ''}`.trim() || 'Participant inconnu';
+    const details = document.createElement('span');
+    details.className = 'participant-status';
+    details.textContent = row.email ? `${row.status} · ${row.email}` : (row.status || 'Statut inconnu');
+    item.append(name, details);
+    participantList.append(item);
+  });
+}
 
+function renderLiveRows(rows) {
+  const safeRows = Array.isArray(rows) ? rows : [];
+  renderAttendanceRows(safeRows);
+  setAttendanceState(safeRows.length ? 'success' : 'empty', safeRows.length
+    ? `${safeRows.length} participant${safeRows.length > 1 ? 's' : ''} trouvé${safeRows.length > 1 ? 's' : ''}.`
+    : 'Aucun participant connecté actuellement.');
 }
 
 async function exportAttendanceToSheets() {
@@ -526,10 +580,7 @@ async function moveDriveFileToFolder(fileId, folderId, token) {
 }
 
 function prepareAttendanceView(event) {
-  currentAttendanceRows = [];
-  attendanceSummary.hidden = true;
-  exportButton.disabled = true;
-  htmlExportButton.hidden = true;
+  clearAttendanceRows();
   if (!getMeetingLink(event)) {
     setAttendanceState('unavailable', 'Aucun lien Google Meet pour cet événement.');
     return;
@@ -656,9 +707,7 @@ async function analyzeMeeting(event) {
 
   setAttendanceState('loading', 'Recherche du compte rendu Meet…');
   stopLiveTracking();
-  participantList.replaceChildren();
-  currentAttendanceRows = [];
-  exportButton.disabled = true;
+  clearAttendanceRows();
 
   try {
     const filter = `space.meeting_code = "${meetingCode}"`;
@@ -733,7 +782,7 @@ async function analyzeMeeting(event) {
       : 'Aucun participant dans ce compte rendu.');
   } catch (error) {
     currentAttendanceRows = [];
-    exportButton.disabled = true;
+    clearAttendanceRows();
     const message = error.name === 'AbortError'
       ? 'La recherche Meet a dépassé le délai prévu.'
       : error.message?.startsWith('meet-request-failed-401')
@@ -801,6 +850,7 @@ function renderEvents(events, nowMs = Date.now()) {
 
 async function loadCalendarEvents(token) {
   setCalendarState('loading', 'Chargement de votre agenda…');
+  calendarEvents = [];
   eventList.replaceChildren();
 
   const now = new Date();
@@ -877,7 +927,7 @@ async function loadCalendarEvents(token) {
   renderEvents(events, now.getTime());
 
   if (events.length === 0) {
-    setCalendarState('empty', 'Aucun événement récent ou prochain.');
+    setCalendarState('empty', 'Aucun événement prévu aujourd’hui.');
     return;
   }
 
@@ -922,11 +972,9 @@ function setLoading(isLoading) {
 function resetSession() {
   stopLiveTracking();
   currentAccessToken = null;
-  currentAttendanceRows = [];
-  participantList.replaceChildren();
+  clearAttendanceRows();
   eventList.replaceChildren();
   exportConsent.checked = false;
-  exportButton.disabled = true;
   localExportButton.hidden = true;
   signOutButton.hidden = true;
   signInButton.hidden = false;
@@ -1027,14 +1075,12 @@ calendarRefreshButton.addEventListener('click', () => {
 });
 document.addEventListener('click', (event) => {
   if (!calendarMenu.hidden && !calendarMenu.contains(event.target) && !calendarSettingsButton.contains(event.target)) {
-    setCalendarPickerOpen(false);
+    closeCalendarPicker();
   }
 });
 document.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape' && !calendarMenu.hidden) {
-    setCalendarPickerOpen(false);
-    calendarSettingsButton.focus();
-  }
+  if (event.key === 'Escape' && !calendarMenu.hidden) closeCalendarPicker();
+  else trapCalendarPickerFocus(event);
 });
 exportConsent.addEventListener('change', () => {
   exportButton.disabled = currentAttendanceRows.length === 0 || !exportConsent.checked;
