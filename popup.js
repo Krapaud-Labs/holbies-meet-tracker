@@ -450,8 +450,15 @@ function clearAttendanceRows() {
 }
 
 function renderAttendanceRows(rows) {
+<<<<<<< HEAD
   currentAttendanceRows = rows;
   const counts = rows.reduce((summary, row) => {
+=======
+  const safeRows = MeetAttendance.mergeAttendanceRows(Array.isArray(rows) ? rows : []);
+  currentAttendanceRows = safeRows;
+  participantList.replaceChildren();
+  const counts = safeRows.reduce((summary, row) => {
+>>>>>>> 99827dc (fix(audit): align live identity and report validation)
     if (row.status === 'à l’heure') summary.onTime += 1;
     else if (row.status === 'en retard') summary.late += 1;
     else if (row.status === 'absent') summary.absent += 1;
