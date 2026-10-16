@@ -19,7 +19,7 @@ Interface sobre et lisible, orientée confiance et vérification, avec l'énergi
 | --- | --- | --- | --- |
 | Palette | Encre prune `#160b12`, surface vin `#24101b`, cerise `#ff2d55`, rose doux `#ff8da3`, texte blanc rosé `#fff5f7` | Contraste élevé et énergie visuelle rouge/rose, cohérente avec la perception cerise du site | La cerise porte les actions et la hiérarchie, le texte et l'icône doublent chaque statut |
 | Typographie | Sans empattement système, titres courts et gras | Lisibilité sans dépendance externe | Les capitales restent réservées aux labels |
-| Espacement | Grille compacte de popup, marges régulières | Zones cliquables confortables | Largeur cible 360 px |
+| Espacement | Grille compacte de popup, marges régulières | Zones cliquables confortables | Largeur cible 720 px, sous la limite Chrome de 800 px |
 | Formes et profondeur | Cartes prune sombres, bordure discrète, accent cerise | Hiérarchie claire | Hippocampe local conservé dans la marque, sans dépendance réseau |
 | Iconographie et illustration | Icônes accompagnées de texte | Compréhensible au clavier | Pas de média externe au MVP |
 

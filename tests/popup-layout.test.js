@@ -8,10 +8,12 @@ const html = fs.readFileSync(path.join(__dirname, '..', 'popup.html'), 'utf8');
 // The Chrome extension popup must not collapse to a narrow intrinsic width.
 assert.match(css, /html\s*,\s*body\s*\{[\s\S]*?width:\s*720px\s*;/,
   'document must define an explicit desktop popup width');
+assert.match(css, /html\s*,\s*body\s*\{[\s\S]*?min-width:\s*720px\s*;/,
+  'document must keep the Chrome popup from collapsing below the desktop width');
 assert.match(css, /\.popup-shell\s*\{[\s\S]*?width:\s*100%\s*;/,
   'popup shell must fill the explicit document width');
-assert.match(css, /@media\s*\(max-width:\s*719px\)[\s\S]*?html\s*\{[\s\S]*?width:\s*100%\s*;/,
-  'document width may shrink only on compact viewports');
+assert.match(css, /@media\s*\(max-width:\s*719px\)[\s\S]*?html\s*\{[\s\S]*?width:\s*720px\s*;/,
+  'Chrome popup width must remain fixed when the browser reports a narrow viewport');
 
 // Responsive behavior remains explicit: cards stack at the compact breakpoint.
 assert.match(
