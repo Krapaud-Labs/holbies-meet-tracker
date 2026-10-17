@@ -26,8 +26,8 @@ jobs:
           node --check popup.js
           node --check attendance.js
 
-      - name: Run attendance tests
-        run: node tests/attendance.test.js
+      - name: Run extension tests
+        run: node --test tests/*.test.js
 
       - name: Install backend dependencies
         run: npm ci --prefix backend

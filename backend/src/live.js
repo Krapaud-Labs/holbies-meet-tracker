@@ -1,7 +1,7 @@
 import { timingSafeEqual } from 'node:crypto';
 
 const ALLOWED_DOMAIN = (process.env.ALLOWED_EMAIL_DOMAIN || 'holbertonschool.com').toLowerCase();
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || null;
 
 async function verifyGoogleAccessToken(token, fetchImpl = fetch) {
   if (typeof token !== 'string' || token.length < 20) return null;
@@ -19,7 +19,7 @@ async function verifyGoogleAccessToken(token, fetchImpl = fetch) {
   const profile = await response.json();
   const expiresIn = Number(profile.expires_in);
   const scopes = typeof profile.scope === 'string' ? profile.scope.split(/\s+/).filter(Boolean) : [];
-  const audienceMatches = Boolean(profile.aud) && (!GOOGLE_CLIENT_ID || profile.aud === GOOGLE_CLIENT_ID);
+  const audienceMatches = Boolean(GOOGLE_CLIENT_ID) && profile.aud === GOOGLE_CLIENT_ID;
   const issuerMatches = profile.iss === 'https://accounts.google.com' || profile.iss === 'accounts.google.com';
   const scopeMatches = scopes.includes('https://www.googleapis.com/auth/meetings.space.readonly');
   const verified = profile.email_verified === 'true' || profile.email_verified === true;

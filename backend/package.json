@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "start": "node src/server.js",
-    "test": "node --test test/*.test.js"
+    "test": "GOOGLE_CLIENT_ID=test-client node --test test/*.test.js"
   },
   "dependencies": {
     "pg": "^8.13.1",
