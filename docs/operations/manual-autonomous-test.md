@@ -1,4 +1,6 @@
-# Test manuel du suivi autonome
+# Test manuel du suivi autonome Post-MVP
+
+Cette procédure vérifie le suivi sans présence du mentor, classé Post-MVP par CR-003. Elle ne constitue pas un critère d'acceptation du MVP, qui ne suit que les réunions auxquelles l'utilisateur connecté a participé.
 
 Cette procédure vérifie le suivi sans couper ni terminer une réunion Google Meet.
 
@@ -22,8 +24,6 @@ Cette procédure vérifie le suivi sans couper ni terminer une réunion Google M
 1. Quitter normalement le meeting, sans action de fin depuis l'extension.
 2. Attendre la fin Agenda plus dix minutes de marge, puis laisser Chrome effectuer un cycle.
 3. Rouvrir la popup et vérifier que l'invité réellement absent est devenu `absent`.
-4. Vérifier que le rapport HTML reprend les mêmes statuts.
-
 ## Preuves à conserver
 
 - heure du dernier cycle affichée par la popup ;
