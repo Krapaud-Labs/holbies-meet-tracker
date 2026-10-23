@@ -1,0 +1,5 @@
+orchestrator = "codex"
+kit_version = "1.16.51"
+source = "https://github.com/Krapaud-Labs/AGENTIC-Starter-Kits"
+kit_mode = "shared"
+update_channel = "stable"
