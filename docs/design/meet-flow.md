@@ -1,8 +1,16 @@
 # Parcours Google Meet
 
-## Objectif MVP
+> **Statut : distinguer cible MVP et comportement as-built.** CR-001 autorise l'export automatique d'une réunion à laquelle le formateur a participé. CR-003 classe Post-MVP le suivi autonome d'une réunion sans sa présence. La baseline et les décisions sont dans `docs/project-management/cahier-des-charges/holbies-meet-tracker/`.
 
-Depuis un événement Google Agenda contenant un lien Meet, l'extension recherche le compte rendu de conférence, récupère les participants et agrège leurs sessions pour préparer un statut de présence. Un service worker MV3 relance ce cycle toutes les minutes dans la fenêtre de l'événement, crée la session backend et envoie les snapshots même si la popup est fermée et si le mentor ne rejoint pas le Meet.
+## Cible MVP : réunion à laquelle l'utilisateur a participé
+
+L'utilisateur connecté sélectionne l'événement Meet auquel il participe. Seules les réunions effectivement rejointes par ce compte entrent dans le flux MVP. Une fois les sessions de présence disponibles et la réunion terminée, l'extension crée automatiquement le rapport Sheets si l'export a été activé et autorisé au préalable. Elle réessaie les appels et, après échec, propose le fallback JSON/CSV local. L'extension ne partage pas le rapport et ne transmet pas de présence à un backend dans le MVP.
+
+La disponibilité du rapport final Meet, le signal de fin et les reprises doivent être vérifiés en condition réelle. Aucun succès d'API n'est établi par les tests simulés.
+
+## Comportement actuellement implémenté, Post-MVP CR-002/CR-003
+
+Depuis un événement Google Agenda contenant un lien Meet, l'extension recherche le compte rendu de conférence, récupère les participants et agrège leurs sessions pour préparer un statut de présence. Un service worker MV3 relance ce cycle toutes les minutes dans la fenêtre de l'événement, crée la session backend et envoie les snapshots même si la popup est fermée et si le mentor ne rejoint pas le Meet. Ce comportement as-built dépend du backend (CR-002) et du suivi sans mentor (CR-003); il est classé Post-MVP.
 Après l'heure de fin Agenda, le worker attend dix minutes puis clôture la session via l'endpoint authentifié. Les invités restent donc « en attente » pendant la réunion et deviennent « absents » seulement après cette clôture ou un événement de fin Meet.
 
 ## Meet actuellement ouvert
@@ -42,6 +50,6 @@ Le nom affiché n'est pas une preuve suffisante d'identité. L'extension ne rapp
 
 ## Limites et confidentialité
 
-Les heures d'arrivée et de départ sont des données personnelles. Le MVP ne journalise ni token OAuth ni réponse brute et ne persiste pas les résultats localement. L'export Sheets doit encore recevoir une validation de sa finalité, de ses destinataires, de sa durée de conservation et de sa suppression.
+Les heures d'arrivée et de départ sont des données personnelles. Le comportement de l'extension et du backend doit être évalué selon les changements CR-001 à CR-003. Les tokens OAuth ne doivent pas être journalisés. L'export Sheets doit recevoir une validation de sa finalité, de ses destinataires, de sa durée de conservation et de sa suppression.
 
 Le scope `meetings.space.readonly` peut nécessiter une vérification OAuth pour une application publique. La validation fonctionnelle doit être faite avec un compte Google de test autorisé, sans présenter les contrôles statiques comme un test API réel.
