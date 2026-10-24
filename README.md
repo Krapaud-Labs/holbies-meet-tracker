@@ -1,60 +1,51 @@
 # Holbies Meet Tracker
 
-## Référence MVP et décisions de périmètre
+Extension Chrome Manifest V3 pour analyser les présences aux réunions Google Meet à partir des événements Google Agenda.
 
-Le cahier initial exact et son empreinte officielle n'ont pas été retrouvés. La baseline est reconstituée depuis l'historique du dépôt et son authenticité n'est pas certifiée. Décisions du 2026-10-23 : l'export Sheets automatique en fin d'une réunion à laquelle le formateur a participé est une cible MVP; le backend avec persistance et le suivi sans présence du formateur sont Post-MVP. Le code ci-dessous décrit l'état actuel et peut différer de cette cible. Voir [l'archive, sa provenance et les décisions](docs/project-management/cahier-des-charges/holbies-meet-tracker/PROVENANCE.md) et [le périmètre produit](docs/product/vision-and-scope.md).
+## Périmètre MVP
 
-La fusion d'identités est cohérente entre la popup et le backend live : les adresses nominatives suffixées (`prenom.nom.1@holbertonstudents.com`) sont rapprochées de leur identité nominative de base.
+Le produit vise l'export automatique des réunions auxquelles le mentor participe, avec une collecte VPS indépendante de Chrome et une couverture fiable à démontrer. Le collecteur démarre deux minutes avant l'horaire Agenda et attend la fin réelle de Meet. Si Sheets échoue alors que Chrome est fermé, la cible prévoit un buffer VPS protégé, avec durée fixée par l'établissement. Ces parcours cibles ne sont pas encore implémentés. L'activation automatique reste suspendue tant que la couverture fiable, l'accès Google, les autorisations, la protection des données et les coûts ne sont pas validés. Le suivi sans participation du mentor et les fonctions live générales ne font pas partie du MVP. Voir le [périmètre produit](docs/product/vision-and-scope.md) et la [conception](docs/design/architecture.md).
 
-Le backend refuse désormais les profils OAuth incomplets : audience, issuer Google, e-mail vérifié, expiration et scope Meet doivent être présents et valides. En production, `GOOGLE_CLIENT_ID` doit être configuré pour verrouiller l'audience attendue.
+## Fonctionnalités présentes
 
-La déduplication fusionne aussi les alias nominatifs suffixés par un numéro, par exemple `prenom.nom.1@holbertonstudents.com`, avec l'identité nominative correspondante. Cela évite de compter deux fois un étudiant lorsqu'une reconnexion ou une variante Google crée ce type d'adresse.
+- Connexion Google et lecture des événements Agenda de la semaine en cours.
+- Sélection des agendas à afficher et pagination des événements.
+- Analyse des participants Meet, calcul des arrivées à l'heure, retards et absences, avec rapprochement de certaines variantes d'identité.
+- Rapports HTML et CSV locaux, et export Sheets manuel.
+- Backend Live facultatif pour les sessions et rapports, décrit dans [`backend/README.md`](backend/README.md).
 
-Extension Chrome Manifest V3 pour préparer le suivi de présence des réunions Google Meet.
+## Limites du suivi en arrière-plan
 
-## Interface
+Le cycle périodique actuellement présent dans le dépôt tourne dans le service worker Chrome. Il envoie des snapshots au backend VPS; le VPS ne planifie pas lui-même les réunions. Chrome doit rester ouvert et l'extension doit avoir reçu le consentement Google. Ce worker démarre aussi un suivi sans vérifier que le mentor a rejoint Meet; ce comportement dépasse la frontière MVP choisie et doit être neutralisé avant une livraison MVP. Il ne constitue pas le collecteur VPS planifié.
 
-La liste Agenda récupère tous les agendas accessibles du compte, uniquement pour la semaine civile en cours, conserve les événements à venir et ceux terminés depuis moins d'une heure. Les événements plus anciens sont retirés automatiquement au rechargement. La première connexion demande aussi le scope Google en lecture seule nécessaire pour lister ces agendas ; après une mise à jour des scopes, il faut se déconnecter puis se reconnecter.
+L'export Sheets actuel demande une action manuelle et crée une nouvelle feuille à chaque export. Il ne fournit pas encore l'automatisation ni la réconciliation des doublons prévues pour le MVP. Toute activation reste suspendue jusqu'à validation de l'usage, des autorisations, de la sécurité et des coûts.
 
-Le bloc Agenda propose un bouton engrenage pour ouvrir ou fermer la section « Agendas suivis », où les agendas à afficher peuvent être cochés ou décochés. Le menu reste fermé à l'ouverture de la popup et ne s'ouvre que sur action explicite. La sélection est conservée localement. Le bouton de rafraîchissement recharge les agendas et leurs événements sans devoir se déconnecter.
-
-La lecture Agenda suit aussi la pagination Google (`nextPageToken`) afin d'afficher tous les événements de la période demandée, et pas seulement la première page.
-
-La popup adopte une direction sombre, rouge cerise, rose et blanc rosé inspirée de l'énergie visuelle du [site Holberton School France](https://www.holbertonschool.fr/). Elle utilise un asset hippocampe local, avec une alternative textuelle, des cartes lisibles, des titres courts, des appels à l'action explicites et des messages textuels pour chaque état. Le parcours OAuth est borné à 15 secondes afin d'éviter une popup bloquée si Chrome ou Google ne répond pas.
-
-La version actuelle charge les événements Google Agenda, analyse les comptes rendus Meet liés, calcule des statuts de présence, affiche un résumé des personnes à l'heure, en retard ou absentes, et conserve l'export Google Sheets comme option. Les identités Meet utilisent les champs officiels `signedinUser`, `anonymousUser` et `phoneUser` de l'API Google Meet. Depuis un onglet Google Meet ouvert, le bouton « Analyser le Meet ouvert » permet aussi de lancer l'analyse sans retrouver l'événement dans la liste Agenda. Quand Google expose déjà le compte rendu, la popup envoie un snapshot Meet au backend toutes les cinq secondes pour recalculer le suivi live. Ce comportement as-built dépend du backend et du suivi autonome, tous deux Post-MVP. Les sessions d'une même personne sont fusionnées : la première arrivée sert au calcul du retard et la reconnexion ne crée ni doublon ni faux absent. Le rapprochement Agenda utilise l'e-mail quand Google le fournit et le nom normalisé en secours, afin d'éviter les faux absents des participants identifiables. Les adresses `1234@holbertonstudents.com` et `prenom.nom@holbertonstudents.com` sont rapprochées par le nom Meet ou le nom dérivé de l'adresse nominative, puis fusionnées avant le calcul des absents. Cette même identité canonique est maintenant appliquée au roster live, aux snapshots et à la réponse affichée par la popup : le total ne compte plus deux fois un étudiant qui alterne entre son identifiant numérique et son adresse nominative, et la première arrivée à l'heure reste prioritaire après une reconnexion. Un étudiant ne compte donc qu'une seule fois même s'il utilise ses deux identifiants. Tant que Meet n'a pas envoyé l'événement de fin de conférence, un invité non encore observé reste « en attente » et n'est jamais compté absent. Le Meet ouvert réutilise aussi l'événement Agenda le plus proche si son lien ou son titre n'est pas reconnu directement. Les adresses e-mail longues du compte connecté se renvoient maintenant à la ligne sans troncature. Le preflight CORS autorise les méthodes `POST` et `PUT` utilisées par la création et la mise à jour des sessions live. Le rapport HTML reprend le thème cerise de l'extension et bascule automatiquement entre thème clair et sombre selon `prefers-color-scheme`. La popup adopte une largeur desktop de 720 px pour garder Connexion, Agenda et Présences visibles côte à côte. Les tests réels nécessitent un compte Google de test autorisé et les règles de confidentialité de l'établissement.
-Après toute analyse, le bouton « Télécharger le rapport HTML » génère aussi un rapport local complet, y compris pour les réunions historiques sans session live backend. Il s'ouvre dans un nouvel onglet Chrome avec le thème clair ou sombre du système et ne nécessite pas de permission Sheets.
-
-Le bouton de connexion lance désormais le consentement Google via `chrome.identity` après une action explicite. Après connexion, et lors des réouvertures si Chrome possède encore un token valide, l'adresse du compte connecté est affichée dans la popup et le bouton de connexion laisse place à l'action de déconnexion, sans message de statut redondant. Les scopes retournés sont vérifiés et aucun token n'est persisté par l'extension. Voir [le parcours OAuth](docs/design/oauth-flow.md) pour les limites actuelles.
-
-## Implementation actuelle du suivi live, Post-MVP
-
-Le backend/persistance (CR-002) et le suivi en arrière-plan sans mentor présent (CR-003) sont classés Post-MVP. La description ci-dessous documente le comportement actuel du dépôt; elle ne signifie pas que ces capacités font partie du MVP accepté.
-
-Le suivi live utilise le WebSocket sécurisé `/api/v1/live/sessions/{id}/stream` quand il est disponible. La popup échange d'abord le jeton Google contre un ticket éphémère à usage unique, puis négocie uniquement le sous-protocole `holbies-live-v1` avec ce ticket. Elle reçoit les changements en temps réel et revient automatiquement au polling avec reconnexion progressive en cas de coupure. Le ticket expire après 30 secondes et le jeton Google n'est jamais transmis dans la connexion WebSocket.
-
-Le service worker MV3 lance aussi un cycle périodique sur les réunions Agenda proches. Il crée la session et envoie les snapshots Meet même si la popup est fermée ou si le mentor ne rejoint pas la réunion. Le navigateur doit rester ouvert et le consentement Google doit avoir été accordé au moins une fois.
-Après la fin prévue dans Agenda, il attend dix minutes avant de clôturer la session et de calculer les absents. Cette marge protège les réunions qui débordent ; elle ne déclare jamais absent un invité pendant la réunion active.
-La popup affiche aussi le dernier état du worker (dernier cycle, réunions suivies et erreurs éventuelles) pour rendre le suivi autonome vérifiable.
-La procédure de test non intrusive est décrite dans [`docs/operations/manual-autonomous-test.md`](docs/operations/manual-autonomous-test.md).
-
-Le backend Live est préparé dans `backend/` pour un déploiement sur le VPS. Il limite les mentors au domaine `@holbertonschool.com`, vérifie le propriétaire des sessions et rapports, expose un contrat de session Live et inclut une configuration Docker avec PostgreSQL. Le preflight CORS est limité à l'origine exacte de l'extension via `ALLOWED_EXTENSION_ORIGIN`, les corps JSON sont bornés par `MAX_BODY_BYTES` et les sessions sont restaurées depuis PostgreSQL au démarrage. La popup peut actualiser une session toutes les cinq secondes, récupérer le rapport HTML avec OAuth puis l'ouvrir dans un nouvel onglet Chrome via une URL locale temporaire, ce qui évite la perte du contenu lors de la fermeture de la popup. Elle affiche aussi la cause HTTP d’un échec backend. Dans l’implémentation actuelle, la connexion OAuth initiale reste limitée à Meet, Agenda et l’identité; Sheets/Drive ne sont demandés qu’au clic d’export. La cible MVP CR-001 exige une autorisation préalable à concevoir et ne satisfait pas encore cette implémentation. Le polling est un mécanisme de secours as-built; sa disponibilité et son coût réel ne sont pas établis par les tests locaux; l’adresse HTTPS du service est configurée dans `popup.js` et doit être mise à jour si l’adresse du déploiement change. L’activation Google Workspace Events/Pub/Sub est documentée dans [`docs/operations/google-events-pubsub.md`](docs/operations/google-events-pubsub.md) et nécessite une validation séparée du projet Cloud et du budget.
-
-Le runbook de déploiement gratuit et le compose de production sont documentés dans [`backend/README.md`](backend/README.md), avec un fichier `.env.production.example` qui ne contient aucun secret réel.
-
-Voir [la documentation backend](backend/README.md) pour lancer les tests et le service localement.
-
-## Développement local
+## Installation locale
 
 1. Ouvrir `chrome://extensions` dans Chrome.
 2. Activer le mode développeur.
 3. Choisir **Charger l'extension non empaquetée** et sélectionner ce dossier.
 4. Ouvrir la popup depuis l'icône de l'extension.
 
-Le projet n'utilise pas encore de gestionnaire de paquets ni de build : les fichiers HTML et CSS sont chargés directement par Chrome.
+Le projet ne nécessite pas de build : Chrome charge directement les fichiers HTML, CSS et JavaScript.
 
-Dans la popup, le bloc Présences affiche uniquement les quatre compteurs du résumé. Les détails restent disponibles dans les exports HTML, CSV et Google Sheets.
+## Vérifications locales
 
-Le rapport HTML permet de trier les participants par nom, e-mail, statut ou heure d’arrivée. Les statuts sont classés avec les retards puis les absences en tête, et l’action « Télécharger en PDF » ouvre l’impression système avec une mise en page adaptée.
+```bash
+node --test tests/*.test.js
+npm test --prefix backend
+```
 
-Les rapports HTML local et live utilisent le même résumé chiffré, un tableau lisible sur mobile avec retour à la ligne des emails, et le thème clair/sombre du système. Le rapport live traduit aussi les statuts techniques en libellés français.
+Les tests utilisent des scénarios locaux et des doubles; ils ne prouvent pas l'accès aux comptes Google ni les échanges réels avec Meet, Sheets ou Drive.
+
+## CI GitHub Actions
+
+Le workflow `Validate extension` se déclenche sur les pull requests vers `dev` et `main`. Il vérifie la syntaxe de `popup.js`, `attendance.js`, `backend/src/server.js` et `backend/src/live.js`, lance tous les fichiers `tests/*.test.js` pour l'extension, puis installe les dépendances et exécute les tests backend. Il construit aussi l'image Docker, valide le manifeste JSON et vérifie les espaces du diff. Les exécutions concurrentes d'une même pull request sont annulées au profit de la plus récente. Aucun de ces contrôles ne valide les échanges avec un compte Google réel.
+
+## Documentation
+
+- [Architecture](docs/design/architecture.md)
+- [Flux de présence Meet](docs/design/meet-flow.md)
+- [Export Sheets](docs/design/sheets-export.md)
+- [Parcours OAuth](docs/design/oauth-flow.md)
+- [Guide backend et déploiement VPS](backend/README.md)
