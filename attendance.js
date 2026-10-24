@@ -10,56 +10,60 @@
       .replace(/\s+/g, ' ');
   }
 
-  function getAttendanceIdentityKey(row) {
-    const name = normalizePersonName(row?.name);
-    if (name && !name.includes('@') && name !== 'participant inconnu') return `name:${name}`;
+  function normalizeEmail(email) {
+    if (typeof email !== 'string') return null;
+    const normalized = email.trim().normalize('NFC');
+    if (!/^[^@\s]+@[^@\s]+$/u.test(normalized)) return null;
+    const separator = normalized.lastIndexOf('@');
+    if (separator <= 0 || separator === normalized.length - 1) return null;
+    const local = normalized.slice(0, separator);
+    const domain = normalized.slice(separator + 1).toLowerCase();
+    return `${local}@${domain}`;
+  }
 
-    const email = String(row?.email || '').trim().toLocaleLowerCase('fr-FR');
-    const numericId = email.match(/^(\d{4,5})@holbertonstudents\.com$/)?.[1];
-    if (numericId) return `student-id:${numericId}`;
-    return email ? `email:${email}` : `row:${name}`;
+  function getAttendanceIdentityKey(row) {
+    const email = normalizeEmail(row?.email);
+    return email ? `email:${email}` : null;
   }
 
   function getAttendanceIdentityKeys(row) {
-    const keys = new Set([getAttendanceIdentityKey(row)]);
-    const email = String(row?.email || '').trim().toLocaleLowerCase('fr-FR');
-    const localPart = email.split('@')[0];
-    if (email) keys.add(`email:${email}`);
-    if (/^\d{4,5}@holbertonstudents\.com$/.test(email)) keys.add(`student-id:${localPart}`);
-    if (localPart && !/^\d{4,5}$/.test(localPart) && email.endsWith('@holbertonstudents.com')) {
-      keys.add(`name:${normalizePersonName(localPart.replace(/[._-]+/g, ' '))}`);
-      const numberedAlias = localPart.match(/^(.+?)\.\d+$/);
-      if (numberedAlias) {
-        keys.add(`name:${normalizePersonName(numberedAlias[1].replace(/[._-]+/g, ' '))}`);
-      }
+    const key = getAttendanceIdentityKey(row);
+    return key ? [key] : [];
+  }
+
+  function stableSerialize(value) {
+    if (Array.isArray(value)) return `[${value.map(stableSerialize).join(',')}]`;
+    if (value && typeof value === 'object') {
+      return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableSerialize(value[key])}`).join(',')}}`;
     }
-    const name = normalizePersonName(row?.name);
-    if (name && !name.includes('@') && name !== 'participant inconnu') keys.add(`name:${name}`);
-    return [...keys];
+    return JSON.stringify(value);
   }
 
   function mergeAttendanceRows(rows) {
     const merged = [];
     const priority = { absent: 0, 'absent': 0, waiting: 1, 'en attente': 1, 'identity-to-check': 2, inconnu: 2, late: 3, 'en retard': 3, 'on-time': 4, "à l'heure": 4, 'à l’heure': 4 };
-    for (let row of Array.isArray(rows) ? rows : []) {
-      const email = String(row?.email || '').trim().toLocaleLowerCase('fr-FR');
-      if (email.endsWith('@resource.calendar.google.com')) continue;
-      let candidate = row;
-      let index = merged.findIndex((item) => getAttendanceIdentityKeys(item).some((key) => getAttendanceIdentityKeys(candidate).includes(key)));
-      while (index >= 0) {
-        const current = merged[index];
-      candidate = (priority[row.status] ?? -1) > (priority[current.status] ?? -1)
-          ? { ...current, ...row, email: row.email || current.email, name: row.name || current.name }
-          : { ...row, ...current, email: current.email || row.email, name: current.name || row.name };
-        merged[index] = candidate;
-        const duplicateIndex = merged.findIndex((item, itemIndex) => itemIndex !== index
-          && getAttendanceIdentityKeys(item).some((key) => getAttendanceIdentityKeys(candidate).includes(key)));
-        if (duplicateIndex < 0) break;
-        const duplicate = merged.splice(duplicateIndex, 1)[0];
-        row = { ...candidate, ...duplicate, email: candidate.email || duplicate.email, name: candidate.name || duplicate.name };
-        index = merged.findIndex((item) => getAttendanceIdentityKeys(item).some((key) => getAttendanceIdentityKeys(row).includes(key)));
+    const orderedRows = (Array.isArray(rows) ? rows : []).slice().sort((left, right) => {
+      const leftKey = stableSerialize(left);
+      const rightKey = stableSerialize(right);
+      return leftKey < rightKey ? -1 : leftKey > rightKey ? 1 : 0;
+    });
+    for (const row of orderedRows) {
+      const email = normalizeEmail(row?.email);
+      if (email?.endsWith('@resource.calendar.google.com')) continue;
+      const key = getAttendanceIdentityKey(row);
+      if (!key) {
+        merged.push({ ...row, email: null, status: 'identity-to-check' });
+        continue;
       }
-      if (index < 0) merged.push(row);
+      const index = merged.findIndex((item) => getAttendanceIdentityKey(item) === key);
+      if (index < 0) {
+        merged.push({ ...row, email });
+        continue;
+      }
+      const current = merged[index];
+      merged[index] = (priority[row.status] ?? -1) > (priority[current.status] ?? -1)
+        ? { ...current, ...row, email, name: row.name || current.name }
+        : { ...row, ...current, email, name: current.name || row.name };
     }
 
     return merged;
@@ -69,20 +73,25 @@
     // Google Meet returns the union fields at participant.signedinUser,
     // participant.anonymousUser or participant.phoneUser.
     // Keep the nested fallback for older fixtures and cached responses.
-    const user = participant?.user || participant || {};
-    if (user.signedinUser?.displayName) {
-      return { name: user.signedinUser.displayName, identifiable: true };
+    const signedInUser = participant?.signedinUser || participant?.user?.signedinUser;
+    const anonymousUser = participant?.anonymousUser || participant?.user?.anonymousUser;
+    const phoneUser = participant?.phoneUser || participant?.user?.phoneUser;
+    const signedInEmail = normalizeEmail(signedInUser?.email);
+    if (signedInEmail) {
+      return { name: signedInUser?.displayName || signedInEmail, email: signedInEmail, identifiable: true };
     }
 
-    if (user.anonymousUser?.displayName) {
-      return { name: user.anonymousUser.displayName, identifiable: false };
+    if (signedInUser?.displayName) return { name: signedInUser.displayName, email: null, identifiable: false };
+
+    if (anonymousUser?.displayName) {
+      return { name: anonymousUser.displayName, email: null, identifiable: false };
     }
 
-    if (user.phoneUser?.displayName) {
-      return { name: user.phoneUser.displayName, identifiable: false };
+    if (phoneUser?.displayName) {
+      return { name: phoneUser.displayName, email: null, identifiable: false };
     }
 
-    return { name: 'Participant inconnu', identifiable: false };
+    return { name: 'Participant inconnu', email: null, identifiable: false };
   }
 
   function getSessionWindow(sessions) {
@@ -114,7 +123,7 @@
     }
 
     if (!window) {
-      return { ...identity, status: 'absent', firstJoin: null, lastLeave: null };
+      return { ...identity, status: 'identity-to-check', firstJoin: null, lastLeave: null };
     }
 
     const start = Date.parse(eventStart || '');
@@ -125,7 +134,7 @@
     return { ...identity, status, firstJoin: window.firstJoin, lastLeave: window.lastLeave };
   }
 
-  const api = { calculateAttendance, getParticipantIdentity, getSessionWindow, getAttendanceIdentityKey, getAttendanceIdentityKeys, mergeAttendanceRows, normalizePersonName };
+  const api = { calculateAttendance, getParticipantIdentity, getSessionWindow, getAttendanceIdentityKey, getAttendanceIdentityKeys, mergeAttendanceRows, normalizePersonName, normalizeEmail };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   globalScope.MeetAttendance = api;
 })(typeof globalThis === 'undefined' ? window : globalThis);

@@ -38,6 +38,8 @@ const LIVE_BACKEND_URL = globalThis.HOLBIES_CONFIG?.liveBackendUrl || '';
 let currentAccessToken = null;
 let calendarLoadSerial = 0;
 let currentAttendanceRows = [];
+let currentCollectionComplete = false;
+let currentReportFilenameDate = '';
 let calendarEvents = [];
 let calendarCatalog = [];
 let liveSessionId = null;
@@ -49,6 +51,8 @@ let liveSocketStopped = false;
 const AUTH_TIMEOUT_MS = 15000;
 const LIVE_START_WINDOW_MS = 15 * 60 * 1000;
 const LIVE_END_GRACE_MS = 10 * 60 * 1000;
+const MAX_GOOGLE_PAGES = 100;
+const MAX_PAGE_TOKEN_LENGTH = 4096;
 
 liveReportLink.addEventListener('click', async (event) => {
   event.preventDefault();
@@ -242,7 +246,40 @@ async function startLiveTracking(meetingId, scheduledStart, expectedParticipants
 }
 
 function normalizeEmail(email) {
-  return typeof email === 'string' ? email.trim().toLowerCase() : null;
+  return MeetAttendance.normalizeEmail(email);
+}
+
+function requireAccessToken(token) {
+  if (typeof token !== 'string' || !token.trim()) throw new Error('google-auth-required');
+  return token.trim();
+}
+
+function isIdentityToCheck(status) {
+  return ['identity-to-check', 'inconnu', 'à vérifier'].includes(status);
+}
+
+function displayAttendanceStatus(status) {
+  return isIdentityToCheck(status) ? 'à vérifier' : formatAttendanceStatus(status);
+}
+
+function validatePageToken(pageToken) {
+  if (typeof pageToken !== 'string'
+    || !pageToken.trim()
+    || pageToken !== pageToken.trim()
+    || pageToken.length > MAX_PAGE_TOKEN_LENGTH
+    || /[\u0000-\u001f\u007f]/u.test(pageToken)) {
+    throw new Error('google-pagination-invalid-page-token');
+  }
+  return pageToken;
+}
+
+function readNextPageToken(page, seenTokens, pageIndex) {
+  if (!Object.prototype.hasOwnProperty.call(page || {}, 'nextPageToken') || page.nextPageToken === null) return null;
+  const pageToken = validatePageToken(page.nextPageToken);
+  if (seenTokens.has(pageToken)) throw new Error('google-pagination-token-loop');
+  if (pageIndex === MAX_GOOGLE_PAGES - 1) throw new Error('google-pagination-page-limit');
+  seenTokens.add(pageToken);
+  return pageToken;
 }
 
 function selectClosestMeetRecord(records, scheduledStart) {
@@ -266,18 +303,28 @@ function splitName(name) {
   return { firstName: parts.shift() || '', lastName: parts.join(' ') };
 }
 
-function nameFromHolbertonEmail(email) {
-  const localPart = String(email || '').split('@')[0];
-  if (!localPart || /^\d{4,5}$/.test(localPart)) return '';
-  return localPart.replace(/[._-]+/g, ' ');
+function exportValues() {
+  const identityChecks = currentAttendanceRows.filter((row) => isIdentityToCheck(row.status)).length;
+  const reportLabel = identityChecks ? 'Rapport PARTIEL' : 'Rapport COMPLET';
+  return [
+    [reportLabel, '', '', '', '', '', ''],
+    [`Identités à vérifier : ${identityChecks}`, '', '', '', '', '', ''],
+    ['', '', '', '', '', '', ''],
+    ['Prénom', 'Nom', 'Date', 'Réunion', 'Arrivée', 'Départ', 'Statut'],
+    ...currentAttendanceRows.map((row) => [row.firstName, row.lastName, row.date, row.meeting, row.arrival, row.departure, displayAttendanceStatus(row.status)]),
+  ];
 }
 
-function exportValues() {
-  return [['Prénom', 'Nom', 'Date', 'Réunion', 'Arrivée', 'Départ', 'Statut'], ...currentAttendanceRows.map((row) => [row.firstName, row.lastName, row.date, row.meeting, row.arrival, row.departure, row.status])];
+function formatCsvCell(value) {
+  const text = String(value ?? '');
+  const formulaLike = /^[\u0000-\u0020\u00a0\uFEFF]*[=+\-@]/u.test(text);
+  const safeText = formulaLike ? `'${text}` : text;
+  return `"${safeText.replaceAll('"', '""')}"`;
 }
 
 function downloadLocalCsv() {
-  const csv = exportValues().map((row) => row.map((value) => `"${String(value ?? '').replaceAll('"', '""')}"`).join(';')).join('\n');
+  if (!currentCollectionComplete || currentAttendanceRows.length === 0) return;
+  const csv = exportValues().map((row) => row.map(formatCsvCell).join(';')).join('\n');
   const url = `data:text/csv;charset=utf-8,${encodeURIComponent(`\uFEFF${csv}`)}`;
   chrome.downloads.download({ url, filename: `holbies-meet-presences-${new Date().toISOString().slice(0, 10)}.csv`, saveAs: true });
 }
@@ -298,8 +345,10 @@ function createLocalReportHtmlBase(rows) {
     summary[status] = (summary[status] || 0) + 1;
     return summary;
   }, {});
-  const title = rows[0]?.meeting || 'Rapport de réunion Google Meet';
-  const tableRows = rows.map((row) => `<tr><td data-column="participant">${escapeReportHtml(row.name || `${row.firstName || ''} ${row.lastName || ''}`.trim())}</td><td data-column="email">${escapeReportHtml(row.email || '')}</td><td data-column="status" class="${row.status === 'en retard' ? 'late' : row.status === 'absent' ? 'absent' : ''}">${escapeReportHtml(row.status)}</td><td data-column="arrival">${escapeReportHtml(formatReportTime(row.arrival))}</td></tr>`).join('');
+  const partial = rows.some((row) => isIdentityToCheck(row.status));
+  const identityChecks = rows.filter((row) => isIdentityToCheck(row.status)).length;
+  const title = `${partial ? 'Rapport PARTIEL' : 'Rapport COMPLET'} · Identités à vérifier : ${identityChecks} · ${rows[0]?.meeting || 'Réunion Google Meet'}`;
+  const tableRows = rows.map((row) => `<tr><td data-column="participant">${escapeReportHtml(row.name || `${row.firstName || ''} ${row.lastName || ''}`.trim())}</td><td data-column="email">${escapeReportHtml(row.email || '')}</td><td data-column="status" class="${row.status === 'en retard' ? 'late' : row.status === 'absent' ? 'absent' : ''}">${escapeReportHtml(displayAttendanceStatus(row.status))}</td><td data-column="arrival">${escapeReportHtml(formatReportTime(row.arrival))}</td></tr>`).join('');
   return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><title>${escapeReportHtml(title)}</title><style>:root{color-scheme:light dark;--bg:#fff7f8;--panel:#fff;--ink:#24101b;--muted:#704c59;--line:#efd8df;--accent:#d7194f}@media(prefers-color-scheme:dark){:root{--bg:#160b12;--panel:#24101b;--ink:#fff5f7;--muted:#d5b8c2;--line:#683345;--accent:#ff2d55}}*{box-sizing:border-box}body{margin:0;min-width:0;padding:clamp(18px,4vw,48px);overflow-x:hidden;background:var(--bg);color:var(--ink);font:16px Arial,sans-serif}main{width:min(100%,1100px);margin:auto}h1{margin:0 0 8px}p{color:var(--muted)}.actions{display:flex;gap:10px;flex-wrap:wrap}.actions button{padding:10px 14px;border:1px solid var(--accent);border-radius:8px;background:var(--accent);color:#fff;font-weight:700;cursor:pointer}.summary{display:flex;gap:12px;flex-wrap:wrap}.summary span{padding:12px 16px;border:1px solid var(--line);border-top:3px solid var(--accent);background:var(--panel);border-radius:10px}.sort-help{color:var(--muted);font-size:14px}.column-hidden{display:none!important}section{margin-top:24px;padding:clamp(14px,3vw,20px);background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow-x:auto}table{width:100%;min-width:620px;border-collapse:collapse;table-layout:fixed}th,td{text-align:left;padding:12px 10px;border-bottom:1px solid var(--line);overflow-wrap:anywhere;vertical-align:top}th:nth-child(1){width:28%}th:nth-child(2){width:36%}th:nth-child(3){width:18%}th:nth-child(4){width:18%}th{color:var(--muted);font-size:12px;text-transform:uppercase}th[role=button]{cursor:pointer}th[role=button]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}.late{color:var(--accent);font-weight:700}.absent{color:var(--muted);font-weight:700}@media(max-width:700px){body{padding:16px}.summary{gap:8px}.summary span{flex:1 1 140px}section{margin-top:18px}}@media print{body{padding:0;background:#fff;color:#000}.no-print{display:none!important}section{margin-top:12px;padding:0;border:0;overflow:visible}table{min-width:0}.summary span{break-inside:avoid}}</style></head><body><main><h1>${escapeReportHtml(title)}</h1><p>Rapport local Holbies Meet · ${escapeReportHtml(rows[0]?.date || new Date().toLocaleString('fr-FR'))}</p><div class="actions no-print"><button type="button" id="print-report">Télécharger en PDF</button></div><div class="summary"><span>À l'heure : ${counts["à l'heure"] || 0}</span><span>En retard : ${counts["en retard"] || 0}</span><span>En attente : ${counts["en attente"] || 0}</span><span>Absents : ${counts.absent || 0}</span></div><p class="sort-help no-print">Cliquez sur Participant, E-mail, Statut ou Arrivée pour trier. Un second clic inverse l’ordre.</p><section><table><thead><tr><th data-column="participant" data-sort-column="participant">Participant</th><th data-column="email" data-sort-column="email">E-mail</th><th data-column="status" data-sort-column="status">Statut</th><th data-column="arrival" data-sort-column="arrival">Arrivée</th></tr></thead><tbody>${tableRows}</tbody></table></section></main><script>document.getElementById('print-report').addEventListener('click',()=>window.print());const statusRank={'en retard':0,absent:1,'en attente':2,"à l'heure":3};document.querySelectorAll('th[data-sort-column]').forEach((header)=>{header.setAttribute('role','button');header.tabIndex=0;header.addEventListener('click',()=>sortRows(header));header.addEventListener('keydown',(event)=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();sortRows(header);}});});function sortRows(header){const column=header.dataset.sortColumn;const direction=header.dataset.sortDirection==='asc'?'desc':'asc';document.querySelectorAll('th[data-sort-column]').forEach((item)=>item.removeAttribute('aria-sort'));header.dataset.sortDirection=direction;header.setAttribute('aria-sort',direction==='asc'?'ascending':'descending');const cells=[...document.querySelectorAll('tbody tr')];cells.sort((left,right)=>{const leftValue=left.querySelector('[data-column="'+column+'"]')?.textContent.trim().toLocaleLowerCase('fr-FR')||'';const rightValue=right.querySelector('[data-column="'+column+'"]')?.textContent.trim().toLocaleLowerCase('fr-FR')||'';const comparison=column==='status'?(statusRank[leftValue]??99)-(statusRank[rightValue]??99):leftValue.localeCompare(rightValue,'fr',{numeric:true});return direction==='asc'?comparison:-comparison;});document.querySelector('tbody').replaceChildren(...cells);}</script></body></html>`;
 }
 
@@ -310,7 +359,7 @@ function createLocalReportHtml(rows) {
 }
 
 async function exportAttendanceToHtml() {
-  if (!currentAttendanceRows.length) return;
+  if (!currentCollectionComplete || !currentAttendanceRows.length) return;
   const reportUrl = URL.createObjectURL(new Blob([createLocalReportHtml(currentAttendanceRows)], { type: 'text/html;charset=utf-8' }));
   try {
     await chrome.tabs.create({ url: reportUrl });
@@ -322,6 +371,9 @@ async function exportAttendanceToHtml() {
 }
 
 async function fetchWithRetry(url, options, attempts = 2) {
+  const authorization = options?.headers?.Authorization;
+  const token = typeof authorization === 'string' ? authorization.match(/^Bearer (.+)$/)?.[1] : null;
+  requireAccessToken(token);
   let lastError;
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     try {
@@ -437,6 +489,11 @@ function formatEventDate(event) {
       }).format(date);
 }
 
+function formatReportFilenameDate(value) {
+  const date = new Date(value || '');
+  return Number.isNaN(date.getTime()) ? '' : new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(date);
+}
+
 function setAttendanceState(state, message) {
   attendanceStatus.dataset.state = state;
   attendanceStatus.textContent = message;
@@ -445,6 +502,8 @@ function setAttendanceState(state, message) {
 
 function clearAttendanceRows() {
   currentAttendanceRows = [];
+  currentCollectionComplete = false;
+  currentReportFilenameDate = '';
   participantList.replaceChildren();
   summaryOnTime.textContent = '0';
   summaryLate.textContent = '0';
@@ -453,6 +512,7 @@ function clearAttendanceRows() {
   attendanceSummary.hidden = true;
   exportButton.disabled = true;
   htmlExportButton.hidden = true;
+  localExportButton.hidden = true;
 }
 
 function renderAttendanceRows(rows) {
@@ -470,13 +530,16 @@ function renderAttendanceRows(rows) {
   summaryAbsent.textContent = String(counts.absent);
   summaryWaiting.textContent = String(counts.waiting);
   attendanceSummary.hidden = safeRows.length === 0;
-  exportButton.disabled = safeRows.length === 0 || !exportConsent.checked;
-  htmlExportButton.hidden = safeRows.length === 0;
+  exportButton.disabled = safeRows.length === 0 || !exportConsent.checked || !currentCollectionComplete;
+  htmlExportButton.hidden = safeRows.length === 0 || !currentCollectionComplete;
 
 }
 
 function renderLiveRows(rows) {
   const safeRows = MeetAttendance.mergeAttendanceRows(Array.isArray(rows) ? rows : []);
+  currentCollectionComplete = false;
+  currentReportFilenameDate = '';
+  localExportButton.hidden = true;
   renderAttendanceRows(safeRows);
   setAttendanceState(safeRows.length ? 'success' : 'empty', safeRows.length
     ? `${safeRows.length} participant${safeRows.length > 1 ? 's' : ''} trouvé${safeRows.length > 1 ? 's' : ''}.`
@@ -485,33 +548,38 @@ function renderLiveRows(rows) {
 
 async function exportAttendanceToSheets() {
   if (!currentAccessToken || currentAttendanceRows.length === 0 || !exportConsent.checked) return;
+  if (!currentCollectionComplete) {
+    setAttendanceState('unavailable', 'Export indisponible : attendez la fin réelle de la réunion et la fin complète de la collecte Meet.');
+    return;
+  }
 
   exportButton.disabled = true;
   exportButton.setAttribute('aria-busy', 'true');
   exportButton.textContent = 'Export en cours…';
   try {
     const sheetsSession = await withTimeout(chrome.identity.getAuthToken({ interactive: true, scopes: [...chrome.runtime.getManifest().oauth2.scopes, ...SHEETS_SCOPES] }), AUTH_TIMEOUT_MS, 'google-auth-timeout');
-    currentAccessToken = normalizeAuthSession(sheetsSession).token;
+    const sheetsToken = requireAccessToken(normalizeAuthSession(sheetsSession).token);
     const createResponse = await fetchWithRetry('https://sheets.googleapis.com/v4/spreadsheets', {
       method: 'POST',
-      headers: { Authorization: `Bearer ${currentAccessToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ properties: { title: `Présences Meet - ${new Date().toLocaleDateString('fr-FR')}` } }),
+      headers: { Authorization: `Bearer ${sheetsToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ properties: { title: `${currentAttendanceRows[0]?.meeting || 'Présences Meet'} - ${currentReportFilenameDate || new Date().toLocaleDateString('fr-FR')}` } }),
     });
     if (!createResponse.ok) throw new Error(`sheets-create-failed-${createResponse.status}`);
     const spreadsheet = await createResponse.json();
     if (!spreadsheet.spreadsheetId) throw new Error('sheets-missing-id');
-    const folderId = await findOrCreateSheetsFolder(currentAccessToken);
-    await moveDriveFileToFolder(spreadsheet.spreadsheetId, folderId, currentAccessToken);
+    const folderId = await findOrCreateSheetsFolder(sheetsToken);
+    await moveDriveFileToFolder(spreadsheet.spreadsheetId, folderId, sheetsToken);
     const values = exportValues();
     const sheetTitle = spreadsheet.sheets?.[0]?.properties?.title || 'Sheet1';
     const range = encodeURIComponent(`${sheetTitle}!A1:G${values.length}`);
     const updateResponse = await fetchWithRetry(`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(spreadsheet.spreadsheetId)}/values/${range}?valueInputOption=RAW`, {
       method: 'PUT',
-      headers: { Authorization: `Bearer ${currentAccessToken}`, 'Content-Type': 'application/json' },
+      headers: { Authorization: `Bearer ${sheetsToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ range: `${sheetTitle}!A1:G${values.length}`, majorDimension: 'ROWS', values }),
     });
     if (!updateResponse.ok) throw new Error(`sheets-update-failed-${updateResponse.status}`);
-    setAttendanceState('success', 'Présences exportées dans le dossier Drive « Holbies Meet Tracker ».');
+    const partial = currentAttendanceRows.some((row) => isIdentityToCheck(row.status));
+    setAttendanceState('success', `Rapport ${partial ? 'PARTIEL' : 'COMPLET'} exporté dans le dossier Drive « Holbies Meet Tracker ».`);
     exportButton.textContent = 'Exporter à nouveau';
   } catch (error) {
     const status = error?.message?.match(/request-failed-(\d+)/)?.[1];
@@ -527,7 +595,7 @@ async function exportAttendanceToSheets() {
     localExportButton.hidden = false;
   } finally {
     exportButton.setAttribute('aria-busy', 'false');
-    exportButton.disabled = currentAttendanceRows.length === 0 || !exportConsent.checked;
+    exportButton.disabled = currentAttendanceRows.length === 0 || !exportConsent.checked || !currentCollectionComplete;
   }
 }
 
@@ -569,9 +637,12 @@ async function moveDriveFileToFolder(fileId, folderId, token) {
 
 function prepareAttendanceView(event) {
   currentAttendanceRows = [];
+  currentCollectionComplete = false;
+  currentReportFilenameDate = '';
   attendanceSummary.hidden = true;
   exportButton.disabled = true;
   htmlExportButton.hidden = true;
+  localExportButton.hidden = true;
   if (!getMeetingLink(event)) {
     setAttendanceState('unavailable', 'Aucun lien Google Meet pour cet événement.');
     return;
@@ -645,6 +716,7 @@ function getMeetingLink(event) {
 }
 
 async function fetchMeetPage(url, token) {
+  token = requireAccessToken(token);
   const response = await fetch(url, {
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -665,27 +737,40 @@ async function fetchMeetPage(url, token) {
 }
 
 async function fetchAllMeetPages(url, collectionKey, token) {
+  token = requireAccessToken(token);
+  const baseUrl = new URL(url);
+  baseUrl.searchParams.delete('pageToken');
   const items = [];
+  const seenTokens = new Set();
   let pageToken = null;
 
-  do {
-    const pageUrl = new URL(url);
-    if (pageToken) pageUrl.searchParams.set('pageToken', pageToken);
+  for (let pageIndex = 0; pageIndex < MAX_GOOGLE_PAGES; pageIndex += 1) {
+    const pageUrl = new URL(baseUrl);
+    if (pageToken !== null) pageUrl.searchParams.set('pageToken', pageToken);
     const page = await fetchMeetPage(pageUrl, token);
-    items.push(...(Array.isArray(page[collectionKey]) ? page[collectionKey] : []));
-    pageToken = page.nextPageToken || null;
-  } while (pageToken);
+    if (!page || !Object.prototype.hasOwnProperty.call(page, collectionKey) || !Array.isArray(page[collectionKey])) {
+      throw new Error('google-pagination-invalid-collection');
+    }
+    items.push(...page[collectionKey]);
+    pageToken = readNextPageToken(page, seenTokens, pageIndex);
+    if (pageToken === null) return items;
+  }
 
-  return items;
+  throw new Error('google-pagination-page-limit');
 }
 
 function formatAttendanceStatus(status) {
   return {
     'on-time': 'à l’heure',
+    "à l'heure": 'à l’heure',
+    'à l’heure': 'à l’heure',
     late: 'en retard',
+    'en retard': 'en retard',
     absent: 'absent',
     waiting: 'en attente',
-    'identity-to-check': 'inconnu',
+    'en attente': 'en attente',
+    'identity-to-check': 'à vérifier',
+    inconnu: 'à vérifier',
   }[status] || 'à vérifier';
 }
 
@@ -699,6 +784,7 @@ async function analyzeMeeting(event) {
   setAttendanceState('loading', 'Recherche du compte rendu Meet…');
   stopLiveTracking();
   clearAttendanceRows();
+  currentCollectionComplete = false;
 
   try {
     const filter = `space.meeting_code = "${meetingCode}"`;
@@ -736,39 +822,45 @@ async function analyzeMeeting(event) {
     // exposée plusieurs fois par conferenceRecords (alias e-mail, reconnexion
     // ou ressource participant différente) avant le rapprochement Agenda.
     const canonicalParticipantRows = MeetAttendance.mergeAttendanceRows(participantRows.filter(Boolean));
-    const byEmail = new Map(canonicalParticipantRows.filter((row) => row.email).map((row) => [row.email, row]));
-    const byName = new Map(canonicalParticipantRows.map((row) => [normalizePersonName(row.name), row]));
+    const byEmail = new Map(canonicalParticipantRows.filter((row) => row.email).map((row) => [normalizeEmail(row.email), row]));
     const invitedRows = (event.attendees || [])
-      .filter((attendee) => normalizeEmail(attendee.email))
+      .filter((attendee) => {
+        const email = normalizeEmail(attendee?.email);
+        const displayName = typeof attendee?.displayName === 'string' ? attendee.displayName.trim() : '';
+        return !email?.endsWith('@resource.calendar.google.com') && Boolean(email || displayName);
+      })
       .map((attendee) => {
-        const email = normalizeEmail(attendee.email);
-        const attendeeName = attendee.displayName || attendee.email;
-        const emailName = nameFromHolbertonEmail(email);
-        const match = byEmail.get(email)
-          || byName.get(normalizePersonName(attendeeName))
-          || byName.get(normalizePersonName(emailName));
-        const name = splitName(match?.name || attendee.displayName || attendee.email);
+        const email = normalizeEmail(attendee?.email);
+        const match = byEmail.get(email);
+        const displayName = typeof attendee?.displayName === 'string' ? attendee.displayName.trim() : '';
+        const attendeeEmail = typeof attendee?.email === 'string' ? attendee.email : '';
+        const name = splitName(match?.name || displayName || email || attendeeEmail || 'Participant inconnu');
         if (match) {
           return { ...match, email: match.email || email };
         }
         return {
           ...name,
-          name: attendee.displayName || attendee.email,
-          email,
-          status: 'absent',
+          name: displayName || email || attendeeEmail || 'Participant inconnu',
+          email: email || null,
+          status: 'à vérifier',
           arrival: '',
           departure: '',
         };
       });
-    // Le roster Agenda est la source de vérité : les lignes Meet non
-    // rapprochées sont des invités externes ou des alias incomplets et ne
-    // doivent pas gonfler les compteurs étudiants.
-    const rows = MeetAttendance.mergeAttendanceRows(invitedRows).map((row) => ({
+    const invitedEmails = new Set(invitedRows.map((row) => normalizeEmail(row.email)).filter(Boolean));
+    const unmatchedMeetRows = canonicalParticipantRows
+      .filter((row) => !row.email || !invitedEmails.has(normalizeEmail(row.email)))
+      .map((row) => ({ ...row, status: 'à vérifier' }));
+    // Les lignes Meet qui ne correspondent pas à un e-mail complet du roster
+    // restent visibles à vérifier et ne sont jamais comptées présentes/absentes.
+    const rows = MeetAttendance.mergeAttendanceRows([...invitedRows, ...unmatchedMeetRows]).map((row) => ({
       ...row,
       date: formatEventDate(event),
       meeting: event.summary || 'Réunion Google Meet',
     }));
 
+    currentReportFilenameDate = formatReportFilenameDate(event.start?.dateTime || event.start?.date);
+    currentCollectionComplete = Boolean(record.endTime && !Number.isNaN(Date.parse(record.endTime)));
     renderAttendanceRows(rows);
     if (shouldTrackLive(event)) {
       await startLiveTracking(record.name, event.start?.dateTime || event.start?.date, invitedRows.map((row) => ({ email: row.email, displayName: row.name })));
@@ -845,6 +937,7 @@ function renderEvents(events, nowMs = Date.now()) {
 }
 
 async function loadCalendarEvents(token) {
+  token = requireAccessToken(token);
   setCalendarState('loading', 'Chargement de votre agenda…');
   calendarEvents = [];
   eventList.replaceChildren();
@@ -892,10 +985,11 @@ async function loadCalendarEvents(token) {
 
     for (const calendar of calendars) {
       if (!selectedIds.includes(calendar.id)) continue;
+      const seenPageTokens = new Set();
       let pageToken = null;
-      do {
+      for (let pageIndex = 0; pageIndex < MAX_GOOGLE_PAGES; pageIndex += 1) {
         const pageParams = new URLSearchParams(params);
-        if (pageToken) pageParams.set('pageToken', pageToken);
+        if (pageToken !== null) pageParams.set('pageToken', pageToken);
         const calendarId = encodeURIComponent(calendar.id || 'primary');
         const response = await fetchWithRetry(`https://www.googleapis.com/calendar/v3/calendars/${calendarId}/events?${pageParams}`, {
           headers: { Authorization: `Bearer ${token}` },
@@ -910,9 +1004,14 @@ async function loadCalendarEvents(token) {
         }
 
         const data = await response.json();
-        calendarItems.push(...(Array.isArray(data.items) ? data.items : []));
-        pageToken = data.nextPageToken || null;
-      } while (pageToken);
+        if (!data || !Object.prototype.hasOwnProperty.call(data, 'items') || !Array.isArray(data.items)) {
+          throw new Error('calendar-pagination-invalid-collection');
+        }
+        calendarItems.push(...data.items);
+        pageToken = readNextPageToken(data, seenPageTokens, pageIndex);
+        if (pageToken === null) break;
+      }
+      if (pageToken !== null) throw new Error('google-pagination-page-limit');
     }
   } finally {
     clearTimeout(timeout);
@@ -936,6 +1035,7 @@ function setAuthState(state, message) {
 }
 
 async function fetchConnectedAccount(token) {
+  token = requireAccessToken(token);
   const response = await fetch(GOOGLE_USERINFO_URL, {
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -996,13 +1096,14 @@ async function disconnectGoogleAccount() {
 }
 
 function finishGoogleConnection({ token, grantedScopes = [] }, message = 'Compte Google connecté.') {
+  token = requireAccessToken(token);
   const requiredScopes = chrome.runtime.getManifest().oauth2.scopes;
   // Selon la version de Chrome, getAuthToken peut renvoyer un token sans la
   // liste grantedScopes. L'API ayant déjà validé le token, cette absence ne
   // doit pas masquer le compte connecté ni fermer la popup silencieusement.
   const hasRequiredScopes = grantedScopes.length === 0 || requiredScopes.every((scope) => grantedScopes.includes(scope));
 
-  if (!token || !hasRequiredScopes) throw new Error('required-scopes-not-granted');
+  if (!hasRequiredScopes) throw new Error('required-scopes-not-granted');
 
   setLoading(false);
   setAuthState('success', message);
@@ -1079,7 +1180,7 @@ document.addEventListener('keydown', (event) => {
   else trapCalendarPickerFocus(event);
 });
 exportConsent.addEventListener('change', () => {
-  exportButton.disabled = currentAttendanceRows.length === 0 || !exportConsent.checked;
+  exportButton.disabled = currentAttendanceRows.length === 0 || !exportConsent.checked || !currentCollectionComplete;
 });
 localExportButton.addEventListener('click', downloadLocalCsv);
 htmlExportButton.addEventListener('click', exportAttendanceToHtml);

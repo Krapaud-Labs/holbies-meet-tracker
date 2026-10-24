@@ -14,8 +14,19 @@ test('tracks only events in the active monitoring window', () => {
   assert.equal(isTrackableEvent({ ...event, start: { dateTime: '2026-10-13T09:00:00Z' }, end: { dateTime: '2026-10-13T10:00:00Z' } }, now), false);
 });
 
-test('keeps only identifiable Agenda guests as expected participants', () => {
-  assert.deepEqual(expectedParticipants({ attendees: [{ email: 'Alice@holbertonschool.com', displayName: 'Alice' }, { responseStatus: 'accepted' }] }), [{ email: 'alice@holbertonschool.com', displayName: 'Alice' }]);
+test('keeps Agenda guests without comparable email as identity-to-check candidates', () => {
+  assert.deepEqual(expectedParticipants({ attendees: [
+    { email: 'Alice@holbertonschool.com', displayName: 'Alice' },
+    { displayName: 'Guest without email' },
+    { email: '', displayName: 'Guest with empty email' },
+    { email: 'not-an-email', displayName: 'Guest with invalid email' },
+    { responseStatus: 'accepted' },
+  ] }), [
+    { email: 'Alice@holbertonschool.com', displayName: 'Alice' },
+    { email: null, displayName: 'Guest without email', status: 'identity-to-check' },
+    { email: null, displayName: 'Guest with empty email', status: 'identity-to-check' },
+    { email: null, displayName: 'Guest with invalid email', status: 'identity-to-check' },
+  ]);
 });
 
 test('closes a session only after the scheduled end grace period', () => {
