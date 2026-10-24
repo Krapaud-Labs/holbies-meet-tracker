@@ -10,7 +10,7 @@ Après la fin réelle de Meet et la pagination complète, l'export manuel de la 
 
 Pour le backend live actuel, les présences avec e-mail complet comparable restent possibles, mais les invités attendus non observés restent « à vérifier » faute de preuve serveur vérifiable de fin Meet et de pagination complète. Aucun booléen de complétude envoyé par le client n'est accepté; une future absence backend requiert un CR/work item distinct.
 
-Le rapprochement s'appuie uniquement sur un e-mail complet comparable et les tokens OAuth absents, blancs ou non textuels sont refusés avant toute requête. Un échec Sheets ne remplace pas le token Agenda/Meet courant. Aucune API Google réelle n'a été appelée pour ces contrôles.
+Le rapprochement s'appuie uniquement sur un e-mail complet comparable et les tokens OAuth absents, blancs ou non textuels sont refusés avant toute requête, y compris lors de la validation d'une session par le backend. Les résultats de fusion du backend sont stables quel que soit l'ordre des lignes. Un échec Sheets ne remplace pas le token Agenda/Meet courant. Aucune API Google réelle n'a été appelée pour ces contrôles.
 
 ## Fonctionnalités présentes
 

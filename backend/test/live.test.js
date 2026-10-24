@@ -58,6 +58,19 @@ test('accepts only a verified Google token from the allowed domain', async () =>
   assert.deepEqual(await verifyGoogleAccessToken('a-valid-token-with-enough-length', fetchImpl), { email: 'mentor@holbertonschool.com', subject: 'subject-1' });
 });
 
+test('rejects blank or malformed OAuth tokens before contacting Google', async () => {
+  const invalidTokens = [null, undefined, '', '   ', ' '.repeat(32), false, 0, {}, 'short'];
+  for (const token of invalidTokens) {
+    let fetchCount = 0;
+    const result = await verifyGoogleAccessToken(token, async () => {
+      fetchCount += 1;
+      return { ok: true, json: async () => ({}) };
+    });
+    assert.equal(result, null, `token ${String(token)} must be rejected`);
+    assert.equal(fetchCount, 0, `token ${String(token)} must not trigger Google tokeninfo`);
+  }
+});
+
 test('decodes and applies a Google Meet participant join event', () => {
   const store = createLiveStore();
   const session = store.upsert({ id: 's1', meetingId: 'conferenceRecords/c1', scheduledStart: '2026-10-13T09:00:00Z', participants: [] });
@@ -121,6 +134,48 @@ test('merges reconnect snapshots without creating a late or duplicate participan
   assert.equal(session.participants[0].leftAt, '2026-10-13T09:40:00Z');
 });
 
+test('backend participant merge is invariant to row order and never bridges by name', () => {
+  const rows = [
+    { name: 'Zoé Durand', email: 'student@holbertonstudents.com', joinedAt: '2026-10-13T09:02:00Z' },
+    { name: 'Alice Martin', email: 'student@HOLBERTONSTUDENTS.COM', joinedAt: '2026-10-13T09:01:00Z' },
+    { name: 'Alice Martin', email: 'other@holbertonstudents.com', joinedAt: '2026-10-13T09:03:00Z' },
+    { name: 'Alice Martin', email: null, joinedAt: '2026-10-13T09:04:00Z' },
+  ];
+  const permutations = (items) => items.length === 0
+    ? [[]]
+    : items.flatMap((item, index) => permutations(items.filter((_, itemIndex) => itemIndex !== index)).map((rest) => [item, ...rest]));
+  const results = permutations(rows).map((participants) => {
+    const session = { scheduledStart: '2026-10-13T09:00:00Z', participants: [] };
+    applyParticipantSnapshot(session, participants);
+    return getParticipantStatuses(session);
+  });
+
+  for (const result of results.slice(1)) assert.deepEqual(result, results[0]);
+  assert.equal(results[0].length, 3, 'only identical full emails may merge');
+  const student = results[0].find((participant) => participant.email === 'student@holbertonstudents.com');
+  assert.equal(student.name, 'Alice Martin', 'conflicting display names resolve deterministically');
+  assert.equal(student.joinedAt, '2026-10-13T09:01:00Z');
+  assert.equal(results[0].filter((participant) => participant.email && participant.name === 'Alice Martin').length, 2,
+    'a shared name does not bridge distinct emails');
+  assert.equal(results[0].find((participant) => !participant.email).status, 'identity-to-check');
+});
+
+test('Meet event name selection is invariant to event order for one full email', () => {
+  const events = [
+    { type: 'google.workspace.meet.participant.v2.joined', participantSession: { displayName: 'Zoé Durand', email: 'student@holbertonstudents.com', startTime: '2026-10-13T09:02:00Z' } },
+    { type: 'google.workspace.meet.participant.v2.joined', participantSession: { displayName: 'Alice Martin', email: 'student@HOLBERTONSTUDENTS.COM', startTime: '2026-10-13T09:01:00Z' } },
+  ];
+  const run = (orderedEvents) => {
+    const session = { scheduledStart: '2026-10-13T09:00:00Z', participants: [] };
+    for (const event of orderedEvents) applyMeetEvent(session, event);
+    return getParticipantStatuses(session);
+  };
+
+  assert.deepEqual(run(events), run(events.slice().reverse()));
+  assert.equal(run(events)[0].name, 'Alice Martin');
+  assert.equal(run(events)[0].joinedAt, '2026-10-13T09:01:00Z');
+});
+
 test('does not merge distinct full emails that share a display name', () => {
   const session = {
     scheduledStart: '2026-10-13T09:45:00Z',
@@ -152,9 +207,9 @@ test('keeps distinct email identities across live events even when names match',
     participantSession: { email: 'pierre.cardin@holbertonstudents.com', displayName: 'Pierre Cardin', startTime: '2026-10-13T09:47:00Z' },
   });
   assert.equal(session.participants.length, 2);
-  assert.equal(session.participants[0].joinedAt, '2026-10-13T09:46:00Z');
-  assert.equal(session.participants[0].status, 'on-time');
-  assert.equal(session.participants[1].joinedAt, '2026-10-13T09:47:00Z');
+  assert.equal(session.participants.find(({ email }) => email === '14000@holbertonstudents.com').joinedAt, '2026-10-13T09:46:00Z');
+  assert.equal(session.participants.find(({ email }) => email === '14000@holbertonstudents.com').status, 'on-time');
+  assert.equal(session.participants.find(({ email }) => email === 'pierre.cardin@holbertonstudents.com').joinedAt, '2026-10-13T09:47:00Z');
 });
 
 test('does not infer a shared identity from numbered nominative email aliases', () => {
@@ -168,7 +223,7 @@ test('does not infer a shared identity from numbered nominative email aliases', 
     participantSession: { email: 'benjamin.dereuck.1@holbertonstudents.com', displayName: 'benjamin.dereuck.1@holbertonstudents.com', startTime: '2026-10-13T09:47:00Z' },
   });
   assert.equal(session.participants.length, 2);
-  assert.equal(session.participants[0].joinedAt, '2026-10-13T09:46:00Z');
-  assert.equal(session.participants[0].status, 'on-time');
-  assert.equal(session.participants[1].joinedAt, '2026-10-13T09:47:00Z');
+  assert.equal(session.participants.find(({ email }) => email === 'benjamin.dereuck@holbertonstudents.com').joinedAt, '2026-10-13T09:46:00Z');
+  assert.equal(session.participants.find(({ email }) => email === 'benjamin.dereuck@holbertonstudents.com').status, 'on-time');
+  assert.equal(session.participants.find(({ email }) => email === 'benjamin.dereuck.1@holbertonstudents.com').joinedAt, '2026-10-13T09:47:00Z');
 });
