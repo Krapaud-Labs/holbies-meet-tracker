@@ -214,21 +214,32 @@ test('Meet report becomes complete only after valid endTime and successful pagin
     hangoutLink: 'https://meet.google.com/abc-mnop-xyz',
     attendees: [
       { email: 'ada@holbertonstudents.com', displayName: 'Ada Lovelace' },
+      { email: 'absent@holbertonstudents.com', displayName: 'Absent Student' },
       { displayName: 'Guest without email' },
       { email: 'not-an-email', displayName: 'Guest with invalid email' },
     ],
   };
-  const makeMeetFetch = ({ ended = true, failSessionsPage = false, omitParticipants = false } = {}) => async (url, options, calls) => {
+  const makeMeetFetch = (settings = {}) => {
+    const { ended = true, failSessionsPage = false, omitParticipants = false, includeUnknownParticipant = false, includeConflictingEmailParticipant = false, malformedParticipant = false, malformedParticipantName = false, reservedParticipantId = '' } = settings;
+    const recordName = settings.malformedRecordName ? 'other/record/target' : `conferenceRecords/${settings.reservedRecordId || 'target'}`;
+    return async (url, options, calls) => {
     const pageUrl = new URL(String(url));
     calls.push({ url: String(url), options });
     if (pageUrl.pathname === '/v2/conferenceRecords') {
       if (!pageUrl.searchParams.has('pageToken')) return response(200, { conferenceRecords: [], nextPageToken: 'records-2' });
-      return response(200, { conferenceRecords: [{ name: 'conferenceRecords/target', startTime: event.start.dateTime, ...(ended ? { endTime: '2026-10-13T10:00:00.000Z' } : {}) }] });
+      return response(200, { conferenceRecords: [{ name: recordName, startTime: event.start.dateTime, ...(ended ? { endTime: '2026-10-13T10:00:00.000Z' } : {}) }] });
     }
     if (pageUrl.pathname.endsWith('/participants') && !pageUrl.pathname.endsWith('/participantSessions')) {
       if (!pageUrl.searchParams.has('pageToken')) return response(200, { participants: [], nextPageToken: 'participants-2' });
       if (omitParticipants) return response(200, { nextPageToken: null });
-      return response(200, { participants: [{ name: 'conferenceRecords/target/participants/p1', signedinUser: { displayName: 'Ada Lovelace', email: 'ada@holbertonstudents.com' } }] });
+      return response(200, { participants: [
+        { name: `${recordName}/participants/p1`, signedinUser: { displayName: 'Ada Lovelace', email: 'ada@holbertonstudents.com' } },
+        ...(includeUnknownParticipant ? [{ name: `${recordName}/participants/p2`, anonymousUser: { displayName: 'Absent Student' } }] : []),
+        ...(includeConflictingEmailParticipant ? [{ name: `${recordName}/participants/p3`, signedinUser: { displayName: 'Absent Student', email: 'different@holbertonstudents.com' } }] : []),
+        ...(malformedParticipant ? [{ signedinUser: { displayName: 'Malformed participant' } }] : []),
+        ...(malformedParticipantName ? [{ name: 'other/path/p4', signedinUser: { displayName: 'Malformed resource', email: 'malformed@holbertonstudents.com' } }] : []),
+        ...(reservedParticipantId ? [{ name: `${recordName}/participants/${reservedParticipantId}`, signedinUser: { displayName: 'Encoded Resource', email: 'encoded@holbertonstudents.com' } }] : []),
+      ] });
     }
     if (pageUrl.pathname.endsWith('/participantSessions')) {
       if (!pageUrl.searchParams.has('pageToken')) return response(200, { participantSessions: [], nextPageToken: 'sessions-2' });
@@ -237,24 +248,78 @@ test('Meet report becomes complete only after valid endTime and successful pagin
     }
     return response(500, {}, { text: `unexpected ${pageUrl}` });
   };
+  };
 
-  await t.test('valid end time plus all pages permits a PARTIEL report; email-less roster guests are counted for review', async () => {
+  await t.test('valid end time plus all pages permits a PARTIEL report and confirms a certain absence', async () => {
     const h = createHarness({ fetchImpl: makeMeetFetch({ ended: true }) });
     setExportState(h.context, { rows: [], collectionComplete: false });
     await vm.runInContext(`analyzeMeeting(${JSON.stringify(event)})`, h.context);
     assert.equal(vm.runInContext('currentCollectionComplete', h.context), true);
     const rows = JSON.parse(vm.runInContext('JSON.stringify(currentAttendanceRows)', h.context));
-    assert.equal(rows.length, 3);
+    assert.equal(rows.length, 4);
     assert.equal(rows.find(({ name }) => name === 'Ada Lovelace').status, 'à l’heure');
+    assert.equal(rows.find(({ name }) => name === 'Absent Student').status, 'absent');
     assert.equal(rows.filter(({ email }) => !email).length, 2);
     assert.equal(h.elements.get('#summary-on-time').textContent, '1');
     assert.equal(h.elements.get('#summary-late').textContent, '0');
-    assert.equal(h.elements.get('#summary-absent').textContent, '0');
+    assert.equal(h.elements.get('#summary-absent').textContent, '1');
     assert.equal(h.elements.get('#summary-waiting').textContent, '0');
     const values = JSON.parse(vm.runInContext('JSON.stringify(exportValues())', h.context));
     assert.deepEqual(values[0], ['Rapport PARTIEL', '', '', '', '', '', '']);
     assert.deepEqual(values[1], ['Identités à vérifier : 2', '', '', '', '', '', '']);
-    assert.deepEqual(values.slice(4).map((row) => row.at(-1)).sort(), ['à vérifier', 'à vérifier', 'à l’heure'].sort());
+    assert.deepEqual(values.slice(4).map((row) => row.at(-1)).sort(), ['à vérifier', 'à vérifier', 'à l’heure', 'absent'].sort());
+  });
+
+  await t.test('anonymous Meet participant prevents an absent conclusion based on name', async () => {
+    const h = createHarness({ fetchImpl: makeMeetFetch({ ended: true, includeUnknownParticipant: true }) });
+    setExportState(h.context, { rows: [], collectionComplete: false });
+    await vm.runInContext(`analyzeMeeting(${JSON.stringify(event)})`, h.context);
+    const rows = JSON.parse(vm.runInContext('JSON.stringify(currentAttendanceRows)', h.context));
+    assert.equal(rows.find(({ name }) => name === 'Absent Student').status, 'à vérifier');
+    assert.equal(rows.filter(({ email }) => !email).length, 3);
+    assert.equal(h.elements.get('#summary-absent').textContent, '0');
+    const values = JSON.parse(vm.runInContext('JSON.stringify(exportValues())', h.context));
+    assert.deepEqual(values[0], ['Rapport PARTIEL', '', '', '', '', '', '']);
+  });
+
+  await t.test('different email with the same normalized name keeps the invite at verification', async () => {
+    const h = createHarness({ fetchImpl: makeMeetFetch({ ended: true, includeConflictingEmailParticipant: true }) });
+    setExportState(h.context, { rows: [], collectionComplete: false });
+    await vm.runInContext(`analyzeMeeting(${JSON.stringify(event)})`, h.context);
+    const rows = JSON.parse(vm.runInContext('JSON.stringify(currentAttendanceRows)', h.context));
+    assert.equal(rows.find(({ name }) => name === 'Absent Student').status, 'à vérifier');
+    assert.equal(rows.find(({ email }) => email === 'different@holbertonstudents.com').status, 'à vérifier');
+    assert.equal(h.elements.get('#summary-absent').textContent, '0');
+  });
+
+  await t.test('attendeesOmitted prevents absence claims from an incomplete Agenda roster', async () => {
+    const h = createHarness({ fetchImpl: makeMeetFetch({ ended: true }) });
+    const eventWithOmittedAttendees = { ...event, attendeesOmitted: true };
+    setExportState(h.context, { rows: [], collectionComplete: false });
+    await vm.runInContext(`analyzeMeeting(${JSON.stringify(eventWithOmittedAttendees)})`, h.context);
+    const rows = JSON.parse(vm.runInContext('JSON.stringify(currentAttendanceRows)', h.context));
+    assert.equal(vm.runInContext('currentCollectionComplete', h.context), true);
+    assert.equal(rows.find(({ name }) => name === 'Absent Student').status, 'à vérifier');
+    assert.equal(h.elements.get('#summary-absent').textContent, '0');
+    const values = JSON.parse(vm.runInContext('JSON.stringify(exportValues())', h.context));
+    assert.deepEqual(values[0], ['Rapport PARTIEL', '', '', '', '', '', '']);
+  });
+
+  await t.test('attendeesOmitted labels an otherwise matched roster as PARTIEL', async () => {
+    const h = createHarness({ fetchImpl: makeMeetFetch({ ended: true }) });
+    const eventWithVisibleRoster = { ...event, attendees: [event.attendees[0]], attendeesOmitted: true };
+    setExportState(h.context, { rows: [], collectionComplete: false });
+    await vm.runInContext(`analyzeMeeting(${JSON.stringify(eventWithVisibleRoster)})`, h.context);
+    const rows = JSON.parse(vm.runInContext('JSON.stringify(currentAttendanceRows)', h.context));
+    assert.equal(vm.runInContext('currentCollectionComplete', h.context), true);
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].status, 'à l’heure');
+    const values = JSON.parse(vm.runInContext('JSON.stringify(exportValues())', h.context));
+    assert.deepEqual(values[0], ['Rapport PARTIEL', '', '', '', '', '', '']);
+    assert.match(values[2][0], /Roster Agenda incomplet/);
+    const html = vm.runInContext('createLocalReportHtml(currentAttendanceRows)', h.context);
+    assert.match(html, /Rapport PARTIEL/);
+    assert.match(html, /Roster Agenda incomplet/);
   });
 
   await t.test('missing Meet end time leaves collection incomplete and blocks Sheets export', async () => {
@@ -262,6 +327,8 @@ test('Meet report becomes complete only after valid endTime and successful pagin
     setExportState(h.context, { rows: [], collectionComplete: false });
     await vm.runInContext(`analyzeMeeting(${JSON.stringify(event)})`, h.context);
     assert.equal(vm.runInContext('currentCollectionComplete', h.context), false);
+    const rows = JSON.parse(vm.runInContext('JSON.stringify(currentAttendanceRows)', h.context));
+    assert.equal(rows.find(({ name }) => name === 'Absent Student').status, 'à vérifier');
     await vm.runInContext('exportAttendanceToSheets()', h.context);
     assert.equal(h.calls.some(({ url }) => String(url).includes('sheets.googleapis.com') || String(url).includes('drive/v3')), false);
   });
@@ -285,6 +352,59 @@ test('Meet report becomes complete only after valid endTime and successful pagin
     vm.runInContext('downloadLocalCsv()', h.context);
     assert.equal(h.calls.some(({ url }) => String(url).includes('sheets.googleapis.com') || String(url).includes('drive/v3')), false);
     assert.equal(h.downloads.length, 0);
+  });
+
+  await t.test('malformed Meet participant row blocks the report and all exports', async () => {
+    const h = createHarness({ fetchImpl: makeMeetFetch({ ended: true, malformedParticipant: true }) });
+    setExportState(h.context, { rows: [], collectionComplete: false });
+    await vm.runInContext(`analyzeMeeting(${JSON.stringify(event)})`, h.context);
+    assert.equal(vm.runInContext('currentCollectionComplete', h.context), false);
+    assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(currentAttendanceRows)', h.context)), []);
+    await vm.runInContext('exportAttendanceToSheets()', h.context);
+    vm.runInContext('downloadLocalCsv()', h.context);
+    assert.equal(h.calls.some(({ url }) => String(url).includes('sheets.googleapis.com') || String(url).includes('drive/v3')), false);
+    assert.equal(h.downloads.length, 0);
+  });
+
+  await t.test('participant resource name outside the selected record blocks the report', async () => {
+    const h = createHarness({ fetchImpl: makeMeetFetch({ ended: true, malformedParticipantName: true }) });
+    setExportState(h.context, { rows: [], collectionComplete: false });
+    await vm.runInContext(`analyzeMeeting(${JSON.stringify(event)})`, h.context);
+    assert.equal(vm.runInContext('currentCollectionComplete', h.context), false);
+    assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(currentAttendanceRows)', h.context)), []);
+    assert.equal(h.calls.some(({ url }) => String(url).includes('/participants/p4/participantSessions')), false);
+  });
+
+  await t.test('malformed conference record resource blocks participant requests', async () => {
+    const h = createHarness({ fetchImpl: makeMeetFetch({ ended: true, malformedRecordName: true }) });
+    setExportState(h.context, { rows: [], collectionComplete: false });
+    await vm.runInContext(`analyzeMeeting(${JSON.stringify(event)})`, h.context);
+    assert.equal(vm.runInContext('currentCollectionComplete', h.context), false);
+    assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(currentAttendanceRows)', h.context)), []);
+    assert.equal(h.calls.some(({ url }) => new URL(String(url)).pathname.includes('/participants')), false);
+  });
+
+  await t.test('conference record ID reserved characters stay encoded in the URL path', async () => {
+    const h = createHarness({ fetchImpl: makeMeetFetch({ ended: true, reservedRecordId: 'record?4#frag' }) });
+    setExportState(h.context, { rows: [], collectionComplete: false });
+    await vm.runInContext(`analyzeMeeting(${JSON.stringify(event)})`, h.context);
+    const participantsRequest = h.calls.find(({ url }) => String(url).includes('/conferenceRecords/record%3F4%23frag/participants'));
+    const sessionsRequest = h.calls.find(({ url }) => String(url).includes('/conferenceRecords/record%3F4%23frag/participants/p1/participantSessions'));
+    assert.ok(participantsRequest);
+    assert.ok(sessionsRequest);
+    assert.equal(new URL(String(participantsRequest.url)).hash, '');
+    assert.equal(new URL(String(sessionsRequest.url)).searchParams.get('pageSize'), '250');
+  });
+
+  await t.test('participant ID reserved characters stay inside one encoded URL segment', async () => {
+    const h = createHarness({ fetchImpl: makeMeetFetch({ ended: true, reservedParticipantId: 'p?4#frag' }) });
+    setExportState(h.context, { rows: [], collectionComplete: false });
+    await vm.runInContext(`analyzeMeeting(${JSON.stringify(event)})`, h.context);
+    const sessionRequest = h.calls.find(({ url }) => String(url).includes('p%3F4%23frag/participantSessions'));
+    assert.ok(sessionRequest, 'the opaque participant ID must be encoded as one path segment');
+    const parsed = new URL(String(sessionRequest.url));
+    assert.equal(parsed.searchParams.get('pageSize'), '250');
+    assert.equal(parsed.hash, '');
   });
 });
 

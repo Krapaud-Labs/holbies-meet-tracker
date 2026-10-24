@@ -39,6 +39,7 @@ let currentAccessToken = null;
 let calendarLoadSerial = 0;
 let currentAttendanceRows = [];
 let currentCollectionComplete = false;
+let currentAgendaAttendeesOmitted = false;
 let currentReportFilenameDate = '';
 let calendarEvents = [];
 let calendarCatalog = [];
@@ -305,11 +306,12 @@ function splitName(name) {
 
 function exportValues() {
   const identityChecks = currentAttendanceRows.filter((row) => isIdentityToCheck(row.status)).length;
-  const reportLabel = identityChecks ? 'Rapport PARTIEL' : 'Rapport COMPLET';
+  const partial = identityChecks > 0 || currentAgendaAttendeesOmitted;
+  const reportLabel = partial ? 'Rapport PARTIEL' : 'Rapport COMPLET';
   return [
     [reportLabel, '', '', '', '', '', ''],
     [`Identités à vérifier : ${identityChecks}`, '', '', '', '', '', ''],
-    ['', '', '', '', '', '', ''],
+    [currentAgendaAttendeesOmitted ? 'Roster Agenda incomplet : des invités peuvent manquer' : '', '', '', '', '', '', ''],
     ['Prénom', 'Nom', 'Date', 'Réunion', 'Arrivée', 'Départ', 'Statut'],
     ...currentAttendanceRows.map((row) => [row.firstName, row.lastName, row.date, row.meeting, row.arrival, row.departure, displayAttendanceStatus(row.status)]),
   ];
@@ -345,9 +347,10 @@ function createLocalReportHtmlBase(rows) {
     summary[status] = (summary[status] || 0) + 1;
     return summary;
   }, {});
-  const partial = rows.some((row) => isIdentityToCheck(row.status));
+  const partial = currentAgendaAttendeesOmitted || rows.some((row) => isIdentityToCheck(row.status));
   const identityChecks = rows.filter((row) => isIdentityToCheck(row.status)).length;
-  const title = `${partial ? 'Rapport PARTIEL' : 'Rapport COMPLET'} · Identités à vérifier : ${identityChecks} · ${rows[0]?.meeting || 'Réunion Google Meet'}`;
+  const rosterWarning = currentAgendaAttendeesOmitted ? ' · Roster Agenda incomplet : des invités peuvent manquer' : '';
+  const title = `${partial ? 'Rapport PARTIEL' : 'Rapport COMPLET'} · Identités à vérifier : ${identityChecks} · ${rows[0]?.meeting || 'Réunion Google Meet'}${rosterWarning}`;
   const tableRows = rows.map((row) => `<tr><td data-column="participant">${escapeReportHtml(row.name || `${row.firstName || ''} ${row.lastName || ''}`.trim())}</td><td data-column="email">${escapeReportHtml(row.email || '')}</td><td data-column="status" class="${row.status === 'en retard' ? 'late' : row.status === 'absent' ? 'absent' : ''}">${escapeReportHtml(displayAttendanceStatus(row.status))}</td><td data-column="arrival">${escapeReportHtml(formatReportTime(row.arrival))}</td></tr>`).join('');
   return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><title>${escapeReportHtml(title)}</title><style>:root{color-scheme:light dark;--bg:#fff7f8;--panel:#fff;--ink:#24101b;--muted:#704c59;--line:#efd8df;--accent:#d7194f}@media(prefers-color-scheme:dark){:root{--bg:#160b12;--panel:#24101b;--ink:#fff5f7;--muted:#d5b8c2;--line:#683345;--accent:#ff2d55}}*{box-sizing:border-box}body{margin:0;min-width:0;padding:clamp(18px,4vw,48px);overflow-x:hidden;background:var(--bg);color:var(--ink);font:16px Arial,sans-serif}main{width:min(100%,1100px);margin:auto}h1{margin:0 0 8px}p{color:var(--muted)}.actions{display:flex;gap:10px;flex-wrap:wrap}.actions button{padding:10px 14px;border:1px solid var(--accent);border-radius:8px;background:var(--accent);color:#fff;font-weight:700;cursor:pointer}.summary{display:flex;gap:12px;flex-wrap:wrap}.summary span{padding:12px 16px;border:1px solid var(--line);border-top:3px solid var(--accent);background:var(--panel);border-radius:10px}.sort-help{color:var(--muted);font-size:14px}.column-hidden{display:none!important}section{margin-top:24px;padding:clamp(14px,3vw,20px);background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow-x:auto}table{width:100%;min-width:620px;border-collapse:collapse;table-layout:fixed}th,td{text-align:left;padding:12px 10px;border-bottom:1px solid var(--line);overflow-wrap:anywhere;vertical-align:top}th:nth-child(1){width:28%}th:nth-child(2){width:36%}th:nth-child(3){width:18%}th:nth-child(4){width:18%}th{color:var(--muted);font-size:12px;text-transform:uppercase}th[role=button]{cursor:pointer}th[role=button]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}.late{color:var(--accent);font-weight:700}.absent{color:var(--muted);font-weight:700}@media(max-width:700px){body{padding:16px}.summary{gap:8px}.summary span{flex:1 1 140px}section{margin-top:18px}}@media print{body{padding:0;background:#fff;color:#000}.no-print{display:none!important}section{margin-top:12px;padding:0;border:0;overflow:visible}table{min-width:0}.summary span{break-inside:avoid}}</style></head><body><main><h1>${escapeReportHtml(title)}</h1><p>Rapport local Holbies Meet · ${escapeReportHtml(rows[0]?.date || new Date().toLocaleString('fr-FR'))}</p><div class="actions no-print"><button type="button" id="print-report">Télécharger en PDF</button></div><div class="summary"><span>À l'heure : ${counts["à l'heure"] || 0}</span><span>En retard : ${counts["en retard"] || 0}</span><span>En attente : ${counts["en attente"] || 0}</span><span>Absents : ${counts.absent || 0}</span></div><p class="sort-help no-print">Cliquez sur Participant, E-mail, Statut ou Arrivée pour trier. Un second clic inverse l’ordre.</p><section><table><thead><tr><th data-column="participant" data-sort-column="participant">Participant</th><th data-column="email" data-sort-column="email">E-mail</th><th data-column="status" data-sort-column="status">Statut</th><th data-column="arrival" data-sort-column="arrival">Arrivée</th></tr></thead><tbody>${tableRows}</tbody></table></section></main><script>document.getElementById('print-report').addEventListener('click',()=>window.print());const statusRank={'en retard':0,absent:1,'en attente':2,"à l'heure":3};document.querySelectorAll('th[data-sort-column]').forEach((header)=>{header.setAttribute('role','button');header.tabIndex=0;header.addEventListener('click',()=>sortRows(header));header.addEventListener('keydown',(event)=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();sortRows(header);}});});function sortRows(header){const column=header.dataset.sortColumn;const direction=header.dataset.sortDirection==='asc'?'desc':'asc';document.querySelectorAll('th[data-sort-column]').forEach((item)=>item.removeAttribute('aria-sort'));header.dataset.sortDirection=direction;header.setAttribute('aria-sort',direction==='asc'?'ascending':'descending');const cells=[...document.querySelectorAll('tbody tr')];cells.sort((left,right)=>{const leftValue=left.querySelector('[data-column="'+column+'"]')?.textContent.trim().toLocaleLowerCase('fr-FR')||'';const rightValue=right.querySelector('[data-column="'+column+'"]')?.textContent.trim().toLocaleLowerCase('fr-FR')||'';const comparison=column==='status'?(statusRank[leftValue]??99)-(statusRank[rightValue]??99):leftValue.localeCompare(rightValue,'fr',{numeric:true});return direction==='asc'?comparison:-comparison;});document.querySelector('tbody').replaceChildren(...cells);}</script></body></html>`;
 }
@@ -503,6 +506,7 @@ function setAttendanceState(state, message) {
 function clearAttendanceRows() {
   currentAttendanceRows = [];
   currentCollectionComplete = false;
+  currentAgendaAttendeesOmitted = false;
   currentReportFilenameDate = '';
   participantList.replaceChildren();
   summaryOnTime.textContent = '0';
@@ -538,6 +542,7 @@ function renderAttendanceRows(rows) {
 function renderLiveRows(rows) {
   const safeRows = MeetAttendance.mergeAttendanceRows(Array.isArray(rows) ? rows : []);
   currentCollectionComplete = false;
+  currentAgendaAttendeesOmitted = false;
   currentReportFilenameDate = '';
   localExportButton.hidden = true;
   renderAttendanceRows(safeRows);
@@ -578,7 +583,7 @@ async function exportAttendanceToSheets() {
       body: JSON.stringify({ range: `${sheetTitle}!A1:G${values.length}`, majorDimension: 'ROWS', values }),
     });
     if (!updateResponse.ok) throw new Error(`sheets-update-failed-${updateResponse.status}`);
-    const partial = currentAttendanceRows.some((row) => isIdentityToCheck(row.status));
+    const partial = currentAgendaAttendeesOmitted || currentAttendanceRows.some((row) => isIdentityToCheck(row.status));
     setAttendanceState('success', `Rapport ${partial ? 'PARTIEL' : 'COMPLET'} exporté dans le dossier Drive « Holbies Meet Tracker ».`);
     exportButton.textContent = 'Exporter à nouveau';
   } catch (error) {
@@ -638,6 +643,7 @@ async function moveDriveFileToFolder(fileId, folderId, token) {
 function prepareAttendanceView(event) {
   currentAttendanceRows = [];
   currentCollectionComplete = false;
+  currentAgendaAttendeesOmitted = Boolean(event.attendeesOmitted);
   currentReportFilenameDate = '';
   attendanceSummary.hidden = true;
   exportButton.disabled = true;
@@ -785,6 +791,7 @@ async function analyzeMeeting(event) {
   stopLiveTracking();
   clearAttendanceRows();
   currentCollectionComplete = false;
+  currentAgendaAttendeesOmitted = Boolean(event.attendeesOmitted);
 
   try {
     const filter = `space.meeting_code = "${meetingCode}"`;
@@ -799,12 +806,26 @@ async function analyzeMeeting(event) {
       return;
     }
 
-    const participantsUrl = `${MEET_RECORDS_URL}/${record.name.split('/').pop()}/participants?pageSize=250`;
+    const recordPrefix = 'conferenceRecords/';
+    const recordId = typeof record.name === 'string' && record.name.startsWith(recordPrefix)
+      ? record.name.slice(recordPrefix.length)
+      : '';
+    if (!recordId || recordId.includes('/') || recordId === '.' || recordId === '..') {
+      throw new Error('meet-record-invalid-name');
+    }
+    const encodedRecordId = encodeURIComponent(recordId);
+    const participantsUrl = `${MEET_RECORDS_URL}/${encodedRecordId}/participants?pageSize=250`;
     const participants = await fetchAllMeetPages(participantsUrl, 'participants', currentAccessToken);
     const participantRows = await Promise.all(participants.map(async (participant) => {
-      const participantName = participant.name?.split('/').pop();
-      if (!participantName) return null;
-      const sessionsUrl = `${MEET_RECORDS_URL}/${record.name.split('/').pop()}/participants/${participantName}/participantSessions?pageSize=250`;
+      const participantPrefix = `${record.name}/participants/`;
+      const participantResourceName = participant?.name;
+      const participantName = typeof participantResourceName === 'string' && participantResourceName.startsWith(participantPrefix)
+        ? participantResourceName.slice(participantPrefix.length)
+        : '';
+      if (!participantName || participantName.includes('/') || participantName === '.' || participantName === '..') {
+        throw new Error('meet-participant-invalid-name');
+      }
+      const sessionsUrl = `${MEET_RECORDS_URL}/${encodedRecordId}/participants/${encodeURIComponent(participantName)}/participantSessions?pageSize=250`;
       const sessions = await fetchAllMeetPages(sessionsUrl, 'participantSessions', currentAccessToken);
       const result = MeetAttendance.calculateAttendance(participant, sessions, event.start?.dateTime || event.start?.date);
       const name = splitName(result.name);
@@ -822,7 +843,12 @@ async function analyzeMeeting(event) {
     // exposée plusieurs fois par conferenceRecords (alias e-mail, reconnexion
     // ou ressource participant différente) avant le rapprochement Agenda.
     const canonicalParticipantRows = MeetAttendance.mergeAttendanceRows(participantRows.filter(Boolean));
+    const hasUnidentifiedMeetParticipant = canonicalParticipantRows.some((row) => !row.email);
     const byEmail = new Map(canonicalParticipantRows.filter((row) => row.email).map((row) => [normalizeEmail(row.email), row]));
+    const canConfirmAbsence = Boolean(record.endTime
+      && !Number.isNaN(Date.parse(record.endTime))
+      && !event.attendeesOmitted
+      && !hasUnidentifiedMeetParticipant);
     const invitedRows = (event.attendees || [])
       .filter((attendee) => {
         const email = normalizeEmail(attendee?.email);
@@ -838,11 +864,15 @@ async function analyzeMeeting(event) {
         if (match) {
           return { ...match, email: match.email || email };
         }
+        const normalizedDisplayName = displayName ? MeetAttendance.normalizePersonName(displayName) : '';
+        const hasAmbiguousEmailCandidate = Boolean(normalizedDisplayName && canonicalParticipantRows.some((row) =>
+          normalizeEmail(row.email) !== email
+          && MeetAttendance.normalizePersonName(row.name) === normalizedDisplayName));
         return {
           ...name,
           name: displayName || email || attendeeEmail || 'Participant inconnu',
           email: email || null,
-          status: 'à vérifier',
+          status: email && canConfirmAbsence && !hasAmbiguousEmailCandidate ? 'absent' : 'à vérifier',
           arrival: '',
           departure: '',
         };
@@ -866,7 +896,7 @@ async function analyzeMeeting(event) {
       await startLiveTracking(record.name, event.start?.dateTime || event.start?.date, invitedRows.map((row) => ({ email: row.email, displayName: row.name })));
     }
     setAttendanceState(rows.length ? 'success' : 'empty', rows.length
-      ? `${rows.length} participant${rows.length > 1 ? 's' : ''} trouvé${rows.length > 1 ? 's' : ''}.`
+      ? `${rows.length} participant${rows.length > 1 ? 's' : ''} trouvé${rows.length > 1 ? 's' : ''}.${currentAgendaAttendeesOmitted ? ' Le roster Agenda peut être incomplet; le rapport sera PARTIEL.' : ''}`
       : 'Aucun participant dans ce compte rendu.');
   } catch (error) {
     currentAttendanceRows = [];
