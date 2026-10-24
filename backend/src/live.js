@@ -36,23 +36,20 @@ function normalizeIdentity(value) {
   return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
+function normalizeComparableEmail(value) {
+  if (typeof value !== 'string') return null;
+  const normalized = value.trim().normalize('NFC');
+  const separator = normalized.indexOf('@');
+  if (separator <= 0 || separator !== normalized.lastIndexOf('@') || separator === normalized.length - 1) return null;
+  const local = normalized.slice(0, separator);
+  const domain = normalized.slice(separator + 1).toLowerCase();
+  if (/\s/.test(local) || /\s/.test(domain)) return null;
+  return `${local}@${domain}`;
+}
+
 function identityKeys(row) {
-  const email = String(row?.email || '').trim().toLowerCase();
-  const name = normalizeIdentity(row?.name || row?.displayName);
-  const keys = new Set();
-  if (email) {
-    keys.add(`email:${email}`);
-    const id = email.match(/^(\d{4,5})@holbertonstudents\.com$/)?.[1];
-    if (id) keys.add(`student-id:${id}`);
-    const local = email.split('@')[0];
-    if (!/^\d{4,5}$/.test(local)) {
-      keys.add(`name:${normalizeIdentity(local.replace(/[._-]+/g, ' '))}`);
-      const numberedAlias = local.match(/^(.+?)\.\d+$/);
-      if (numberedAlias) keys.add(`name:${normalizeIdentity(numberedAlias[1].replace(/[._-]+/g, ' '))}`);
-    }
-  }
-  if (name && name !== 'participant inconnu') keys.add(`name:${name}`);
-  return [...keys];
+  const email = normalizeComparableEmail(row?.email);
+  return email ? [`email:${email}`] : [];
 }
 
 function mergeIdentityRows(rows) {
@@ -63,7 +60,7 @@ function mergeIdentityRows(rows) {
     const keys = identityKeys(row);
     const matchIndex = keys.map((key) => indexes.get(key)).find((index) => index !== undefined);
     if (matchIndex === undefined) {
-      const next = { ...row, email: row.email?.toLowerCase?.() || row.email || null, leftAt: row.leftAt || row.lastLeave || null };
+      const next = { ...row, email: normalizeComparableEmail(row.email), leftAt: row.leftAt || row.lastLeave || null };
       merged.push(next);
       keys.forEach((key) => indexes.set(key, merged.length - 1));
       continue;
@@ -71,7 +68,7 @@ function mergeIdentityRows(rows) {
     const current = merged[matchIndex];
     const joinedAt = [current.joinedAt, current.firstJoin, row.joinedAt, row.firstJoin].filter(Boolean).sort()[0] || null;
     const leftAt = [current.leftAt, current.lastLeave, row.leftAt, row.lastLeave].filter(Boolean).sort().at(-1) || null;
-    merged[matchIndex] = { ...current, ...row, name: current.name || row.name || row.displayName, email: current.email || row.email || null, joinedAt, leftAt };
+    merged[matchIndex] = { ...current, ...row, name: current.name || row.name || row.displayName, email: current.email || normalizeComparableEmail(row.email), joinedAt, leftAt };
     identityKeys(merged[matchIndex]).forEach((key) => indexes.set(key, matchIndex));
   }
   return merged;
@@ -122,7 +119,7 @@ function applyMeetEvent(session, event) {
   if (!event.participantSession) return session;
   const participant = event.participantSession;
   const name = participant.displayName || participant.name || 'Participant inconnu';
-  const email = participant.email?.toLowerCase?.() || null;
+  const email = normalizeComparableEmail(participant.email);
   const incomingKeys = new Set(identityKeys({ name, email }));
   const findMatchingParticipant = () => session.participants.find((item) =>
     identityKeys(item).some((key) => incomingKeys.has(key)));
@@ -141,7 +138,7 @@ function applyMeetEvent(session, event) {
   const next = existing || { name, email, status: 'unknown', lateMinutes: 0 };
   if (!next.joinedAt || Date.parse(joinedAt) < Date.parse(next.joinedAt)) next.joinedAt = joinedAt;
   if (email) next.email = email;
-  const status = calculateStatus(next.joinedAt, session.scheduledStart);
+  const status = email ? calculateStatus(next.joinedAt, session.scheduledStart) : { status: 'identity-to-check', lateMinutes: 0 };
   next.lateMinutes = status.lateMinutes;
   next.status = status.status;
   session.participants = mergeIdentityRows(existing
@@ -155,9 +152,9 @@ function applyParticipantSnapshot(session, participants) {
   const incoming = participants
     .filter((participant) => participant && (participant.name || participant.email))
     .slice(0, 250)
-    .map((participant) => ({ ...participant, name: participant.name || participant.email || 'Participant inconnu', email: participant.email?.toLowerCase?.() || null }));
+    .map((participant) => ({ ...participant, name: participant.name || participant.email || 'Participant inconnu', email: normalizeComparableEmail(participant.email) }));
   session.participants = mergeIdentityRows([...(session.participants || []), ...incoming]).map((participant) => {
-    const status = calculateStatus(participant.joinedAt, session.scheduledStart);
+    const status = participant.email ? calculateStatus(participant.joinedAt, session.scheduledStart) : { status: 'identity-to-check', lateMinutes: 0 };
     return { ...participant, status: status.status, lateMinutes: status.lateMinutes };
   });
   return session;
@@ -171,7 +168,7 @@ function getParticipantStatuses(session) {
     return participant || {
       name: expectedParticipant.displayName || expectedParticipant.name,
       email: expectedParticipant.email || null,
-      status: session?.endedAt ? 'absent' : 'waiting',
+      status: 'identity-to-check',
       lateMinutes: 0,
     };
   });
@@ -207,7 +204,7 @@ function renderReportHtml(session) {
     else if (participant.status === 'absent') summary.absent += 1;
     return summary;
   }, { onTime: 0, late: 0, waiting: 0, absent: 0 });
-  const labels = { 'on-time': "à l'heure", late: 'en retard', waiting: 'en attente', absent: 'absent', unknown: 'inconnu' };
+  const labels = { 'on-time': "à l'heure", late: 'en retard', waiting: 'en attente', absent: 'absent', unknown: 'à vérifier', 'identity-to-check': 'à vérifier' };
   const rows = participants.map((participant) => `<tr><td>${escapeHtml(participant.name)}</td><td>${escapeHtml(participant.email || '')}</td><td class="${participant.status === 'late' ? 'late' : participant.status === 'absent' ? 'absent' : ''}">${escapeHtml(labels[participant.status] || participant.status)}</td><td>${escapeHtml(formatReportTime(participant.joinedAt || participant.firstJoin))}</td></tr>`).join('');
   return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><title>Rapport de réunion</title><style>
 :root{color-scheme:light dark;--ink:#fff7f8;--panel:#ffffff;--paper:#24101b;--muted:#704c59;--line:#efd8df;--cherry:#d7194f;--cherry-soft:#fff0f3;--shadow:0 18px 50px rgba(83,20,42,.12)}
@@ -216,4 +213,4 @@ function renderReportHtml(session) {
 </style><style>body{overflow-x:hidden}main{width:min(100%,960px)}.summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.summary span{padding:14px;border:1px solid var(--line);border-top:3px solid var(--cherry);border-radius:10px}.table-wrap{overflow-x:auto}table{min-width:560px}th,td{overflow-wrap:anywhere;vertical-align:top}caption{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}@media(max-width:600px){.summary{grid-template-columns:repeat(2,minmax(0,1fr))}}</style></head><body><main><header><div><p class="eyebrow">HOLBIES MEET TRACKER</p><h1>Rapport de réunion</h1></div><p>Mentor : ${escapeHtml(session?.mentorEmail)}</p></header><section><h2>Résumé des présences</h2><div class="summary"><span>À l'heure : ${counts.onTime}</span><span>En retard : ${counts.late}</span><span>En attente : ${counts.waiting}</span><span>Absents : ${counts.absent}</span></div></section><section><h2>Détail des participants</h2><div class="table-wrap"><table><caption>Détail des participants</caption><thead><tr><th scope="col">Participant</th><th scope="col">E-mail</th><th scope="col">Statut</th><th scope="col">Arrivée</th></tr></thead><tbody>${rows || '<tr><td colspan="4">Aucune présence enregistrée.</td></tr>'}</tbody></table></div></section></main></body></html>`;
 }
 
-export { ALLOWED_DOMAIN, applyMeetEvent, applyParticipantSnapshot, calculateStatus, createLiveStore, decodeWorkspaceEvent, getParticipantStatuses, identityKeys, isAllowedEmail, mergeIdentityRows, renderReportHtml, verifyEventsSecret, verifyGoogleAccessToken };
+export { ALLOWED_DOMAIN, applyMeetEvent, applyParticipantSnapshot, calculateStatus, createLiveStore, decodeWorkspaceEvent, getParticipantStatuses, identityKeys, isAllowedEmail, mergeIdentityRows, normalizeComparableEmail, renderReportHtml, verifyEventsSecret, verifyGoogleAccessToken };

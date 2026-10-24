@@ -6,13 +6,21 @@ Extension Chrome Manifest V3 pour analyser les présences aux réunions Google M
 
 Le produit vise l'export automatique des réunions auxquelles le mentor participe, avec une collecte VPS indépendante de Chrome et une couverture fiable à démontrer. Le collecteur démarre deux minutes avant l'horaire Agenda et attend la fin réelle de Meet. Si Sheets échoue alors que Chrome est fermé, la cible prévoit un buffer VPS protégé, avec durée fixée par l'établissement. Ces parcours cibles ne sont pas encore implémentés. L'activation automatique reste suspendue tant que la couverture fiable, l'accès Google, les autorisations, la protection des données et les coûts ne sont pas validés. Le suivi sans participation du mentor et les fonctions live générales ne font pas partie du MVP. Voir le [périmètre produit](docs/product/vision-and-scope.md) et la [conception](docs/design/architecture.md).
 
+Après la fin réelle de Meet et la pagination complète, l'export manuel de la popup marque « PARTIEL » les rapports contenant des identités étudiantes « à vérifier »; ces lignes ne sont pas comptées présentes ou absentes. Une collecte incomplète ne produit aucun rapport. Sheets affiche le statut et le nombre d'identités à vérifier avant les sept colonnes métier; le CSV garde les mêmes métadonnées et neutralise les valeurs qui pourraient être interprétées comme des formules. L'export automatique VPS reste une cible distincte et n'est pas implémenté.
+
+Pour le backend live actuel, les présences avec e-mail complet comparable restent possibles, mais les invités attendus non observés restent « à vérifier » faute de preuve serveur vérifiable de fin Meet et de pagination complète. Aucun booléen de complétude envoyé par le client n'est accepté; une future absence backend requiert un CR/work item distinct.
+
+Le rapprochement s'appuie uniquement sur un e-mail complet comparable et les tokens OAuth absents, blancs ou non textuels sont refusés avant toute requête. Un échec Sheets ne remplace pas le token Agenda/Meet courant. Aucune API Google réelle n'a été appelée pour ces contrôles.
+
 ## Fonctionnalités présentes
 
 - Connexion Google et lecture des événements Agenda de la semaine en cours.
 - Sélection des agendas à afficher et pagination des événements.
-- Analyse des participants Meet, calcul des arrivées à l'heure, retards et absences, avec rapprochement de certaines variantes d'identité.
+- Analyse des participants Meet et rapprochement uniquement par e-mail complet comparable; les identités non résolues restent « à vérifier » et ne sont pas comptées présentes ou absentes.
 - Rapports HTML et CSV locaux, et export Sheets manuel.
 - Backend Live facultatif pour les sessions et rapports, décrit dans [`backend/README.md`](backend/README.md).
+
+Les pages Agenda et Meet sont limitées à 100 par collecte; une page sans sa clé de collection, un jeton de page invalide, répété ou malformé bloque le résultat, sans rapport ni écriture backend. Les tokens OAuth invalides sont refusés avant toute requête. Les tests utilisent des doubles locaux et ne valident pas l'accès Google réel.
 
 ## Limites du suivi en arrière-plan
 
