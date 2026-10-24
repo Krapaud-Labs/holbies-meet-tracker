@@ -4,7 +4,8 @@ const ALLOWED_DOMAIN = (process.env.ALLOWED_EMAIL_DOMAIN || 'holbertonschool.com
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
 
 async function verifyGoogleAccessToken(token, fetchImpl = fetch) {
-  if (typeof token !== 'string' || token.length < 20) return null;
+  if (typeof token !== 'string' || token.trim().length < 20) return null;
+  token = token.trim();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 5000);
   let response;
@@ -52,15 +53,36 @@ function identityKeys(row) {
   return email ? [`email:${email}`] : [];
 }
 
+function stableSerialize(value) {
+  if (Array.isArray(value)) return `[${value.map(stableSerialize).join(',')}]`;
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableSerialize(value[key])}`).join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function stableName(...values) {
+  return values
+    .filter((value) => typeof value === 'string' && value.trim())
+    .map((value) => value.trim())
+    .sort((left, right) => (left < right ? -1 : left > right ? 1 : 0))[0] || null;
+}
+
 function mergeIdentityRows(rows) {
   const merged = [];
   const indexes = new Map();
-  for (const row of Array.isArray(rows) ? rows : []) {
+  const orderedRows = (Array.isArray(rows) ? rows : []).slice().sort((left, right) => {
+    const leftKey = stableSerialize(left);
+    const rightKey = stableSerialize(right);
+    return leftKey < rightKey ? -1 : leftKey > rightKey ? 1 : 0;
+  });
+  for (const row of orderedRows) {
     if (!row || (!row.email && !row.name && !row.displayName)) continue;
-    const keys = identityKeys(row);
+    const rowEmail = normalizeComparableEmail(row.email);
+    const keys = rowEmail ? [`email:${rowEmail}`] : [];
     const matchIndex = keys.map((key) => indexes.get(key)).find((index) => index !== undefined);
     if (matchIndex === undefined) {
-      const next = { ...row, email: normalizeComparableEmail(row.email), leftAt: row.leftAt || row.lastLeave || null };
+      const next = { ...row, email: rowEmail, leftAt: row.leftAt || row.lastLeave || null };
       merged.push(next);
       keys.forEach((key) => indexes.set(key, merged.length - 1));
       continue;
@@ -68,7 +90,14 @@ function mergeIdentityRows(rows) {
     const current = merged[matchIndex];
     const joinedAt = [current.joinedAt, current.firstJoin, row.joinedAt, row.firstJoin].filter(Boolean).sort()[0] || null;
     const leftAt = [current.leftAt, current.lastLeave, row.leftAt, row.lastLeave].filter(Boolean).sort().at(-1) || null;
-    merged[matchIndex] = { ...current, ...row, name: current.name || row.name || row.displayName, email: current.email || normalizeComparableEmail(row.email), joinedAt, leftAt };
+    merged[matchIndex] = {
+      ...current,
+      ...row,
+      name: stableName(current.name, current.displayName, row.name, row.displayName) || current.email || rowEmail,
+      email: current.email || rowEmail,
+      joinedAt,
+      leftAt,
+    };
     identityKeys(merged[matchIndex]).forEach((key) => indexes.set(key, matchIndex));
   }
   return merged;
@@ -127,6 +156,7 @@ function applyMeetEvent(session, event) {
   // snapshots HTTP, sinon un alias numérique puis nominatif recrée une ligne.
   session.participants = mergeIdentityRows(session.participants);
   const existing = findMatchingParticipant();
+  if (existing) existing.name = stableName(existing.name, name);
   const joinedAt = participant.startTime || event.eventTime || new Date().toISOString();
   if (event.type.endsWith('.left')) {
     if (existing) {

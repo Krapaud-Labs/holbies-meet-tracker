@@ -8,9 +8,11 @@ Le produit vise l'export automatique des réunions auxquelles le mentor particip
 
 Après la fin réelle de Meet et la pagination complète, l'export manuel de la popup marque « PARTIEL » les rapports contenant des identités étudiantes « à vérifier »; ces lignes ne sont pas comptées présentes ou absentes. Une collecte incomplète ne produit aucun rapport. Sheets affiche le statut et le nombre d'identités à vérifier avant les sept colonnes métier; le CSV garde les mêmes métadonnées et neutralise les valeurs qui pourraient être interprétées comme des formules. L'export automatique VPS reste une cible distincte et n'est pas implémenté.
 
+Un invité avec une adresse e-mail complète comparable est déclaré absent uniquement après la fin réelle de Meet, la collecte de toutes les pages et un roster Agenda complet (`attendeesOmitted` absent ou faux), sans participant anonyme ni candidat de même nom normalisé avec une autre adresse. Si Calendar indique que des invités peuvent manquer, le rapport est marqué PARTIEL même lorsque toutes les lignes visibles sont rapprochées. Les adresses manquantes ou invalides et les situations ambiguës restent « à vérifier »; un nom n'est jamais utilisé pour associer deux personnes.
+
 Pour le backend live actuel, les présences avec e-mail complet comparable restent possibles, mais les invités attendus non observés restent « à vérifier » faute de preuve serveur vérifiable de fin Meet et de pagination complète. Aucun booléen de complétude envoyé par le client n'est accepté; une future absence backend requiert un CR/work item distinct.
 
-Le rapprochement s'appuie uniquement sur un e-mail complet comparable et les tokens OAuth absents, blancs ou non textuels sont refusés avant toute requête. Un échec Sheets ne remplace pas le token Agenda/Meet courant. Aucune API Google réelle n'a été appelée pour ces contrôles.
+Le rapprochement s'appuie uniquement sur un e-mail complet comparable et les tokens OAuth absents, blancs ou non textuels sont refusés avant toute requête, y compris lors de la validation d'une session par le backend. Les résultats de fusion du backend sont stables quel que soit l'ordre des lignes. Un échec Sheets ne remplace pas le token Agenda/Meet courant. Aucune API Google réelle n'a été appelée pour ces contrôles.
 
 ## Fonctionnalités présentes
 
