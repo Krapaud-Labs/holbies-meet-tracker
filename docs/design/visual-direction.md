@@ -2,7 +2,7 @@
 
 ## Statut et intention
 
-Statut : en cours de validation, 2026-10-13
+Statut : baseline de conception complétée le 2026-10-23; validation de readiness toujours ouverte
 
 Interface sobre et lisible, orientée confiance et vérification, avec l'énergie visuelle de Holberton School. Les états de permission, collecte, succès et erreur doivent être immédiatement compréhensibles.
 
@@ -25,18 +25,18 @@ Interface sobre et lisible, orientée confiance et vérification, avec l'énergi
 
 ## Composants, états et motion
 
-Documenter les composants réutilisables, les états loading, vide, erreur, succès, focus et désactivé. Décrire les transitions, durées, courbes, déclencheurs et comportement avec `prefers-reduced-motion`.
+Composants : en-tête et compte Google courant; bannière de statut; cartes Agenda et Présences; liste des participants à vérifier; activation globale; statut de vérification Meet en arrière-plan; résumé de destination Sheets; progression; résultat et erreurs; dialogue Agenda; zone de rapport de repli. Le libellé et l'icône accompagnent toujours la couleur.
 
-La popup expose le statut de connexion, la réunion détectée, les erreurs et le résultat. Sur une largeur standard, les cartes Agenda et Présences sont présentées côte à côte pour éviter une longue colonne verticale. Une zone dédiée liste les participants à vérifier manuellement. Les états prévus sont : prêt, connexion requise, réunion détectée, chargement, succès, erreur et données à vérifier.
+États et comportements ci-dessus sont des spécifications de conception, pas des preuves runtime. Leur validation dans l'interface réelle, y compris clavier, zoom, responsive, dialogue Agenda et états métier, relève du contrôle produit pré-livraison décrit dans `popup-visual-validation.md`; aucun état non implémenté n'est déclaré testé. Une région `role=status` doit annoncer la progression sans déplacer le focus. Une erreur persistante doit avoir un titre et une action corrective. Le dialogue Agenda doit recevoir le focus à l'ouverture, contenir Tab et Shift+Tab, fermer sur Escape et rendre le focus à son déclencheur. Une confirmation doit nommer l'effet, notamment pour une suppression ou une création susceptible de doublon. Les transitions doivent être courtes et désactivées avec `prefers-reduced-motion`.
 
 ## Responsive, accessibilité et performance
 
-Points de rupture : permissions refusées, participant inconnu et export local. Navigation clavier, libellés accessibles, contraste AA et messages textuels obligatoires. Les transitions restent courtes et sont désactivées avec `prefers-reduced-motion`. Aucun service de police, image ou script distant n'est utilisé.
+Le rendu s'adapte à la largeur réellement disponible, cible de conception 360 à 720 px. Sous 680 px, cartes empilées et actions pleine largeur, sans débordement horizontal ni texte tronqué; à 200 % de zoom, le contenu reste accessible par défilement. Navigation clavier complète, libellés accessibles, contraste AA et messages textuels obligatoires. Le constat actuel de largeur CSS fixe 720 px et de breakpoint inopérant reste à corriger dans un work item distinct. Aucun service de police, image ou script distant n'est utilisé.
 
 ## Validation visuelle
 
 Capture réalisée : popup avec état « connexion requise », vérifiée dans Chrome via un serveur local isolé le 2026-10-13.
-Captures restantes : réunion détectée, succès et erreur d'export lorsque les flux métier seront implémentés.
+Captures restantes : viewport étroit/zoom, dialogue Agenda et états métier lorsqu'ils sont disponibles. Elles constituent des preuves de validation visuelle, distinctes de la description de la baseline.
 Contraste théorique des tokens CSS : blanc rosé `#fff5f7` sur encre prune `#160b12` `18.02:1`, cerise `#ff2d55` sur encre prune `#160b12` `5.28:1`, rose doux `#ff8da3` sur encre prune `#160b12` `8.79:1`, texte secondaire `#d5b8c2` sur encre prune `#160b12` `10.51:1`. Les ratios dépassent le niveau AA pour les usages définis ; la cerise reste réservée aux accents et contrôles, tandis que le texte courant utilise le blanc rosé ou le rose doux.
 Parcours vérifiés : structure HTML, feuille CSS locale, focus visible, mode `prefers-reduced-motion` et rendu de l'état connexion requise dans Chrome.
 Auditeur : contrôle indépendant effectué; validation produit globale encore ouverte jusqu'à l'implémentation des flux métier.

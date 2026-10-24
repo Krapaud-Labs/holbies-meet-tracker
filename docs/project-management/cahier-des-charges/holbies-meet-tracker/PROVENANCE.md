@@ -22,7 +22,7 @@ Le dépôt ne contenait aucun fichier `ORIGINAL-MVP-BRIEF.sha256` avant cette r�
 
 Ces écarts sont consignés comme provenance incertaine et demandes de changement séparées. CR-001 est classé MVP; CR-002 et CR-003 sont Post-MVP selon les décisions utilisateur du 2026-10-23. Aucun classement ne modifie les sources archivées.
 
-Le registre [`CHANGE-REQUEST-28a8e6521495644f0996d40e626d1dfd5a6216c7acb35c4823cce4bb2bf2652b.md`](CHANGE-REQUEST-28a8e6521495644f0996d40e626d1dfd5a6216c7acb35c4823cce4bb2bf2652b.md) détaille les divergences et les classements explicites du 2026-10-23 : CR-001 MVP, CR-002 et CR-003 Post-MVP. Ce journal de décisions n'altère aucune copie de source ni la reconstitution historique.
+Le registre [`CHANGE-REQUEST-28a8e6521495644f0996d40e626d1dfd5a6216c7acb35c4823cce4bb2bf2652b.md`](CHANGE-REQUEST-28a8e6521495644f0996d40e626d1dfd5a6216c7acb35c4823cce4bb2bf2652b.md) détaille les décisions initiales du 2026-10-23 : CR-001 MVP, CR-002 et CR-003 Post-MVP. Une décision ultérieure séparée, CR-008, rouvre au MVP uniquement le collecteur VPS planifié nécessaire, sans modifier les sources ou l'archive historique; CR-003 reste Post-MVP pour les réunions sans participation du mentor. Le registre est dans [`CHANGE-REQUEST-63fb0fed`](CHANGE-REQUEST-63fb0fedc5c73c99d8b20e22899f11452c6757ac4a4b10a41c79b0b024104cbc.md).
 
 ## Limite de l'archive
 
