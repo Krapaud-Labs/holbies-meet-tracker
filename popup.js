@@ -50,6 +50,28 @@ let liveSocketReconnectTimer = null;
 let liveSocketReconnectAttempt = 0;
 let liveSocketStopped = false;
 const AUTH_TIMEOUT_MS = 15000;
+const AUTH_FAILURES = Object.freeze({
+  cancelled: {
+    code: 'AUTH_CANCELLED',
+    message: 'Connexion annulée. Vous pouvez réessayer avec le bouton.',
+  },
+  permissionIncomplete: {
+    code: 'AUTH_PERMISSION_INCOMPLETE',
+    message: 'Autorisation incomplète. Réessayez et examinez les accès demandés.',
+  },
+  timeout: {
+    code: 'AUTH_TIMEOUT',
+    message: 'Google met trop de temps à répondre. Réessayez. Code : AUTH_TIMEOUT.',
+  },
+  tokenInvalid: {
+    code: 'AUTH_TOKEN_INVALID',
+    message: "La connexion n'a pas abouti. Relancez-la depuis ce bouton. Code : AUTH_TOKEN_INVALID.",
+  },
+  unknown: {
+    code: 'AUTH_UNKNOWN',
+    message: 'Connexion impossible pour le moment. Réessayez; si le problème persiste, communiquez le code AUTH_UNKNOWN au support.',
+  },
+});
 const LIVE_START_WINDOW_MS = 15 * 60 * 1000;
 const LIVE_END_GRACE_MS = 10 * 60 * 1000;
 const MAX_GOOGLE_PAGES = 100;
@@ -1158,6 +1180,16 @@ function normalizeAuthSession(session) {
   return session || {};
 }
 
+function classifyAuthFailure(error) {
+  // Only classify stable, locally generated sentinels or the standard
+  // cancellation name. Never display or log provider supplied error text.
+  if (error?.name === 'AbortError') return AUTH_FAILURES.cancelled;
+  if (error?.message === 'required-scopes-not-granted') return AUTH_FAILURES.permissionIncomplete;
+  if (error?.message === 'google-auth-timeout') return AUTH_FAILURES.timeout;
+  if (error?.message === 'google-auth-required') return AUTH_FAILURES.tokenInvalid;
+  return AUTH_FAILURES.unknown;
+}
+
 function connectGoogleAccount() {
   setLoading(true);
   setAuthState('loading', 'Ouverture de la connexion Google…');
@@ -1166,10 +1198,8 @@ function connectGoogleAccount() {
     .then((session) => finishGoogleConnection(normalizeAuthSession(session)))
     .catch((error) => {
       setLoading(false);
-      const message = error?.message === 'google-auth-timeout'
-        ? 'Google ne répond pas. Rechargez l’extension puis réessayez.'
-        : 'Connexion impossible ou autorisations incomplètes. Réessayez depuis la popup.';
-      setAuthState('error', message);
+      const diagnostic = classifyAuthFailure(error);
+      setAuthState('error', diagnostic.message);
     });
 }
 

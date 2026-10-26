@@ -1,12 +1,21 @@
 import http from 'node:http';
 import { randomBytes, randomUUID } from 'node:crypto';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
 import { createDatabase } from './database.js';
-import { applyMeetEvent, applyParticipantSnapshot, createLiveStore, decodeWorkspaceEvent, getParticipantStatuses, mergeIdentityRows, renderReportHtml, verifyEventsSecret, verifyGoogleAccessToken } from './live.js';
+import { applyMeetEvent, applyParticipantSnapshot, createLiveStore, decodeWorkspaceEvent, getParticipantStatuses, isGoogleClientId, mergeIdentityRows, renderReportHtml, verifyEventsSecret, verifyGoogleAccessToken } from './live.js';
 
 const port = Number(process.env.PORT || 8080);
 const maxBodyBytes = Number(process.env.MAX_BODY_BYTES || 256 * 1024);
-const allowedExtensionOrigin = process.env.ALLOWED_EXTENSION_ORIGIN || 'chrome-extension://jilidimjjdkgdggfkackomkmjjldlpaf';
+const googleClientId = process.env.GOOGLE_CLIENT_ID || '';
+const allowedExtensionOrigin = process.env.ALLOWED_EXTENSION_ORIGIN || '';
+if (!isGoogleClientId(googleClientId)) {
+  throw new Error('Invalid configuration: set GOOGLE_CLIENT_ID to the expected Google OAuth client ID.');
+}
+if (!/^chrome-extension:\/\/[a-p]{32}$/.test(allowedExtensionOrigin)) {
+  throw new Error('Invalid configuration: set ALLOWED_EXTENSION_ORIGIN to one exact Chrome extension origin.');
+}
 const store = createLiveStore();
 const database = createDatabase();
 const websocketServer = new WebSocketServer({
@@ -74,10 +83,9 @@ async function authenticate(request) {
 
 function setCorsHeaders(request, response) {
   const origin = request.headers.origin;
-  if (origin === allowedExtensionOrigin) {
-    response.setHeader('access-control-allow-origin', origin);
-    response.setHeader('vary', 'Origin');
-  }
+  if (origin !== allowedExtensionOrigin) return;
+  response.setHeader('access-control-allow-origin', origin);
+  response.setHeader('vary', 'Origin');
   response.setHeader('access-control-allow-methods', 'GET, POST, PUT, OPTIONS');
   response.setHeader('access-control-allow-headers', 'Authorization, Content-Type, X-Google-Events-Secret');
   response.setHeader('access-control-max-age', '600');
@@ -161,11 +169,14 @@ const server = http.createServer(async (request, response) => {
   }
 
   if (request.method === 'POST' && url.pathname.startsWith('/api/v1/live/sessions/') && url.pathname.endsWith('/stream-ticket')) {
+    if (!sameOrigin(request)) {
+      json(response, 403, { error: 'extension-origin-required' });
+      return;
+    }
     const sessionId = url.pathname.split('/').at(-2);
     const session = store.get(sessionId);
     const mentor = await authenticate(request);
-    if (!sameOrigin(request)) json(response, 403, { error: 'extension-origin-required' });
-    else if (!mentor) json(response, 403, { error: 'mentor-domain-not-allowed' });
+    if (!mentor) json(response, 403, { error: 'mentor-domain-not-allowed' });
     else if (!session) json(response, 404, { error: 'live-session-not-found' });
     else if (session.mentorEmail !== mentor.email) json(response, 403, { error: 'session-owner-only' });
     else json(response, 201, { ticket: createWebSocketTicket(session.id, mentor.email), expiresInMs: websocketTicketTtlMs });
@@ -318,7 +329,9 @@ async function start() {
       console.error(`PostgreSQL restore failed: ${error.message}`);
     }
   }
-  server.listen(port, () => console.log(`Live backend listening on ${port}`));
+  server.listen(port, () => console.log(`Live backend listening on ${server.address().port}`));
 }
 
-start();
+if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) start();
+
+export { server, start };

@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
 const vm = require('node:vm');
+const productManifest = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'manifest.json'), 'utf8'));
 const MeetAttendance = require('../attendance.js');
 const HolbiesCalendar = require('../calendar-filter.js');
 
@@ -20,7 +21,7 @@ function response(status, payload, options = {}) {
   };
 }
 
-function createHarness({ fetchImpl, authImpl } = {}) {
+function createHarness({ fetchImpl, authImpl, manifest = productManifest } = {}) {
   const elements = new Map();
   const downloads = [];
   const calls = [];
@@ -91,7 +92,7 @@ function createHarness({ fetchImpl, authImpl } = {}) {
         if (interactive) return 'sheets-token';
         throw new Error('no-cached-token');
       }) },
-      runtime: { getManifest: () => ({ oauth2: { scopes: ['openid'] } }) },
+      runtime: { getManifest: () => manifest },
       storage: { local: { get: async () => ({}) } },
       downloads: { download: (item) => downloads.push(item) },
       tabs: { create: async () => {} },
@@ -111,6 +112,68 @@ function createHarness({ fetchImpl, authImpl } = {}) {
   vm.runInContext(popupSource, context, { filename: 'popup.js' });
   return { context, elements, calls, downloads, timerDelays };
 }
+
+test('interactive sign-in classifies known failures without rendering provider error details', async (t) => {
+  const sensitiveProviderError = new Error('access_token=FAKE_TOKEN_123 user=student@example.invalid');
+  sensitiveProviderError.name = 'OAuthProviderError';
+  const abortError = new Error('id_token=FAKE_ID_TOKEN_456 user=student@example.invalid');
+  abortError.name = 'AbortError';
+  const cases = [
+    ['cancelled', abortError, 'AUTH_CANCELLED', /Connexion annulée/],
+    ['missing scopes', new Error('required-scopes-not-granted'), 'AUTH_PERMISSION_INCOMPLETE', /Autorisation incomplète/],
+    ['timeout', new Error('google-auth-timeout'), 'AUTH_TIMEOUT', /Code : AUTH_TIMEOUT/],
+    ['invalid token', new Error('google-auth-required'), 'AUTH_TOKEN_INVALID', /Code : AUTH_TOKEN_INVALID/],
+    ['unknown provider error', sensitiveProviderError, 'AUTH_UNKNOWN', /code AUTH_UNKNOWN/],
+  ];
+
+  for (const [name, error, expectedCode, expectedMessage] of cases) {
+    await t.test(name, async () => {
+      const h = createHarness({
+        manifest: productManifest,
+        authImpl: async ({ interactive }) => {
+          if (interactive) throw error;
+          throw new Error('no-cached-token');
+        },
+      });
+
+      const actualScopes = JSON.parse(vm.runInContext('JSON.stringify(chrome.runtime.getManifest().oauth2.scopes)', h.context));
+      assert.deepEqual(actualScopes, productManifest.oauth2.scopes, 'auth flow uses the shipped manifest scopes');
+      assert.equal(vm.runInContext(`classifyAuthFailure({ name: ${JSON.stringify(error.name)}, message: ${JSON.stringify(error.message)} }).code`, h.context), expectedCode);
+
+      h.elements.get('#sign-in-button').listeners.click();
+      await new Promise(setImmediate);
+
+      const status = h.elements.get('#auth-status');
+      assert.equal(status.dataset.state, 'error');
+      assert.match(status.textContent, expectedMessage);
+      assert.doesNotMatch(status.textContent, /FAKE_TOKEN_123|FAKE_ID_TOKEN_456|student@example\.invalid|access_token|id_token/);
+      assert.equal(h.elements.get('#sign-in-button').disabled, false, 'sign-in button is re-enabled after failure');
+    });
+  }
+});
+
+test('interactive sign-in rejects a partial grantedScopes response without exposing the token', async () => {
+  const fakeToken = 'FAKE_ACCESS_TOKEN_PARTIAL_SCOPE';
+  const partialScopes = productManifest.oauth2.scopes.slice(0, 1);
+  assert.ok(partialScopes.length < productManifest.oauth2.scopes.length, 'fixture omits at least one required manifest scope');
+  const h = createHarness({
+    authImpl: async ({ interactive }) => {
+      if (!interactive) throw new Error('no-cached-token');
+      return { token: fakeToken, grantedScopes: partialScopes };
+    },
+  });
+  assert.equal(vm.runInContext("classifyAuthFailure(new Error('required-scopes-not-granted')).code", h.context), 'AUTH_PERMISSION_INCOMPLETE');
+
+  h.elements.get('#sign-in-button').listeners.click();
+  await new Promise(setImmediate);
+
+  const status = h.elements.get('#auth-status');
+  assert.equal(status.dataset.state, 'error');
+  assert.match(status.textContent, /Autorisation incomplète/);
+  assert.doesNotMatch(status.textContent, /FAKE_ACCESS_TOKEN_PARTIAL_SCOPE/);
+  assert.equal(vm.runInContext('currentAccessToken', h.context), null, 'rejected partial authorization does not persist the token in popup state');
+  assert.equal(h.elements.get('#sign-in-button').disabled, false, 'sign-in button is re-enabled after failure');
+});
 
 function setExportState(context, { token = 'calendar-token', rows = [{ firstName: 'Ada', lastName: 'Lovelace', email: 'ada@holbertonstudents.com', date: '19/02/1970', meeting: 'Check-in', arrival: '09:00', departure: '09:30', status: 'à l’heure' }], consent = true, collectionComplete = true } = {}) {
   vm.runInContext(`currentAccessToken = ${JSON.stringify(token)}; currentAttendanceRows = ${JSON.stringify(rows)}; currentReportFilenameDate = ${JSON.stringify(rows?.[0]?.date || '')}; currentCollectionComplete = ${collectionComplete}; exportConsent.checked = ${consent};`, context);

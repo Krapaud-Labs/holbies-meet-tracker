@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { applyMeetEvent, applyParticipantSnapshot, calculateStatus, createLiveStore, decodeWorkspaceEvent, getParticipantStatuses, isAllowedEmail, renderReportHtml, verifyEventsSecret, verifyGoogleAccessToken } from '../src/live.js';
+process.env.GOOGLE_CLIENT_ID = '123456789012-test-client.apps.googleusercontent.com';
+const { applyMeetEvent, applyParticipantSnapshot, calculateStatus, createLiveStore, decodeWorkspaceEvent, getParticipantStatuses, isAllowedEmail, renderReportHtml, verifyEventsSecret, verifyGoogleAccessToken } = await import('../src/live.js');
 
 test('only Holberton School emails are allowed', () => {
   assert.equal(isAllowedEmail('mentor@holbertonschool.com'), true);
@@ -46,16 +47,71 @@ test('renders a safe HTML report with late participants highlighted', () => {
 });
 
 test('accepts only a verified Google token from the allowed domain', async () => {
-  const fetchImpl = async () => ({ ok: true, json: async () => ({
+  const expectedClientId = process.env.GOOGLE_CLIENT_ID;
+  let received;
+  const fetchImpl = async (url, options) => {
+    received = { url, options };
+    return { ok: true, json: async () => ({
     email: 'mentor@holbertonschool.com',
-    sub: 'subject-1',
-    aud: 'test-client',
-    iss: 'https://accounts.google.com',
-    email_verified: true,
-    expires_in: '3600',
+    user_id: 'subject-1',
+    audience: expectedClientId,
+    issued_to: expectedClientId,
+    verified_email: true,
+    expires_in: 3600,
     scope: 'https://www.googleapis.com/auth/meetings.space.readonly',
-  }) });
+  }) };
+  };
   assert.deepEqual(await verifyGoogleAccessToken('a-valid-token-with-enough-length', fetchImpl), { email: 'mentor@holbertonschool.com', subject: 'subject-1' });
+  assert.equal(new URL(received.url).origin + new URL(received.url).pathname, 'https://www.googleapis.com/oauth2/v2/tokeninfo');
+  assert.equal(received.options.method, 'POST');
+  assert.equal(new URL(received.url).searchParams.get('access_token'), 'a-valid-token-with-enough-length');
+  assert.equal(received.options.body, undefined);
+});
+
+test('rejects tokeninfo fields that do not exactly match the configured client and access-token contract', async (t) => {
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const validProfile = {
+    email: 'mentor@holbertonschool.com', user_id: 'subject-1', audience: clientId, issued_to: clientId,
+    verified_email: true, expires_in: 3600, scope: 'https://www.googleapis.com/auth/meetings.space.readonly',
+  };
+  const invalidProfiles = [
+    ['audience missing', { ...validProfile, audience: undefined }],
+    ['audience mismatch', { ...validProfile, audience: 'other-client' }],
+    ['issued_to missing', { ...validProfile, issued_to: undefined }],
+    ['issued_to mismatch', { ...validProfile, issued_to: 'other-client' }],
+    ['verified_email false', { ...validProfile, verified_email: false }],
+    ['email_verified ID-token alias only', { ...validProfile, verified_email: undefined, email_verified: true }],
+    ['scope missing', { ...validProfile, scope: '' }],
+    ['scope substring only', { ...validProfile, scope: 'https://www.googleapis.com/auth/meetings.space.readonly.extra' }],
+    ['expiration missing', { ...validProfile, expires_in: undefined }],
+    ['expiration not integer', { ...validProfile, expires_in: '3600' }],
+    ['expiration expired', { ...validProfile, expires_in: 0 }],
+    ['user_id missing', { ...validProfile, user_id: undefined, sub: 'id-token-only' }],
+    ['email outside domain', { ...validProfile, email: 'mentor@example.com' }],
+  ];
+  for (const [name, profile] of invalidProfiles) {
+    await t.test(name, async () => {
+      assert.equal(await verifyGoogleAccessToken('a-valid-token-with-enough-length', async () => ({ ok: true, json: async () => profile })), null);
+    });
+  }
+});
+
+test('tokeninfo network and JSON failures fail closed without logging token, URL, or response details', async () => {
+  const messages = [];
+  const originalConsole = { error: console.error, warn: console.warn, log: console.log };
+  console.error = (...args) => messages.push(args.join(' '));
+  console.warn = (...args) => messages.push(args.join(' '));
+  console.log = (...args) => messages.push(args.join(' '));
+  try {
+    assert.equal(await verifyGoogleAccessToken('a-valid-token-with-enough-length', async () => { throw new Error('private-tokeninfo-error'); }), null);
+    assert.equal(await verifyGoogleAccessToken('a-valid-token-with-enough-length', async () => ({ ok: true, json: async () => { throw new Error('private-payload-error'); } })), null);
+    assert.deepEqual(messages, []);
+    assert.doesNotMatch(messages.join(' '), /a-valid-token|private-tokeninfo-error|private-payload-error/);
+  } finally {
+    console.error = originalConsole.error;
+    console.warn = originalConsole.warn;
+    console.log = originalConsole.log;
+  }
 });
 
 test('rejects blank or malformed OAuth tokens before contacting Google', async () => {

@@ -6,6 +6,8 @@ services:
     environment:
       PORT: 8080
       DATABASE_URL: postgres://holbies:holbies@postgres:5432/holbies
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?set GOOGLE_CLIENT_ID in backend/.env}
+      ALLOWED_EXTENSION_ORIGIN: ${ALLOWED_EXTENSION_ORIGIN:?set ALLOWED_EXTENSION_ORIGIN in backend/.env}
     depends_on:
       - postgres
   postgres:

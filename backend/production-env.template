@@ -1,6 +1,10 @@
 PORT=8080
 DATABASE_URL=postgres://CHANGE_ME:CHANGE_ME@postgres:5432/holbies
 ALLOWED_EMAIL_DOMAIN=holbertonschool.com
+# Required. Set privately to the Google OAuth client associated with the CWS extension.
+GOOGLE_CLIENT_ID=
+# Required. Set privately to the exact Chrome extension origin (32 lowercase a-p characters).
+ALLOWED_EXTENSION_ORIGIN=
 GOOGLE_EVENTS_SECRET=generate-a-long-random-value
 POSTGRES_USER=CHANGE_ME
 POSTGRES_PASSWORD=CHANGE_ME
