@@ -79,9 +79,11 @@ Les tests doivent isoler les erreurs sans authentification Google réelle et cou
 
 ## Limites et preuve de cause
 
-Le code générique actuellement présenté ne distingue pas le refus utilisateur, la configuration OAuth, un scope, un token invalide ou un délai. Aucun rapport disponible ne prouve l'identifiant d'extension autorisé dans le client OAuth, l'état de publication/consentement Google, ni la chaîne d'erreur de la tentative de l'utilisateur. La cause individuelle reste donc à établir.
+L'implémentation ciblée remplace maintenant le message générique par des catégories allowlistées et garde `AUTH_UNKNOWN` lorsque le signal n'est pas reconnu. La tentative qui a produit `AUTH_UNKNOWN` a été attribuée à une erreur `bad client id` sur la copie locale unpacked : l'ID de cette copie ne correspondait pas à l'Item ID associé au client OAuth Chrome Extension. Cette preuve explique cette installation locale uniquement; elle ne prouve ni un défaut ni un succès du paquet Chrome Web Store.
 
-Pour cette attribution, consulter localement, une seule fois, le nom et le message d'erreur de la console du service worker, puis en extraire uniquement une catégorie allowlistée et son code non secret. Ne pas copier le texte brut dans le chat, le work item, les journaux, une capture ou les preuves. Ne jamais relever ni transmettre un jeton, une adresse e-mail, une URL de redirection, un en-tête ou un payload. L'accès à cette console et la confirmation du compte Google restent une preuve manuelle distincte des tests locaux.
+L'utilisateur a précisé que la cible est une installation normale depuis le Chrome Web Store, sans parcours local/unpacked. Le client OAuth Cloud est maintenant associé à l'Item ID du brouillon CWS, mais la fiche reste non publiée. L'audience OAuth est `Externe` en mode `Test`, avec seulement deux comptes de test; les autres mentors ne peuvent donc pas utiliser l'application dans cet état. Aucun essai d'authentification depuis un paquet installé du Store n'est établi. La connexion de production reste non vérifiée et nécessite un paquet installable ainsi qu'une audience/autorisations permettant les mentors prévus.
+
+L'appel interactif `getAuthToken()` et son `catch` sont dans `popup.js`, pas dans le service worker. La console du service worker ne montre donc pas ce rejet. La cause locale ayant déjà été établie, ne pas demander à l'utilisateur de refaire un essai unpacked ni de copier une erreur brute. Toute nouvelle attribution doit se faire depuis le parcours CWS cible, en ne conservant que des catégories non sensibles; aucun jeton, e-mail, URL de redirection, identifiant client, en-tête, payload ou message brut ne doit entrer dans les preuves ou issues.
 
 ## Références officielles consultées le 2026-10-26
 
@@ -89,5 +91,7 @@ Pour cette attribution, consulter localement, une seule fois, le nom et le messa
 - [OpenID Connect de Google](https://developers.google.com/identity/openid-connect/openid-connect) : scopes requis pour OIDC et point UserInfo.
 - [Scopes OAuth 2.0 de Google](https://developers.google.com/identity/protocols/oauth2/scopes) : scopes d'identité et d'API disponibles.
 - [Utiliser OAuth 2.0 pour accéder aux API Google](https://developers.google.com/identity/protocols/oauth2) : consentement et traitement des portées accordées.
+- [Clé de manifeste Chrome](https://developer.chrome.com/docs/extensions/reference/manifest/key) : stabiliser l'identifiant de l'extension en développement.
+- [Clients OAuth Google Cloud](https://support.google.com/cloud/answer/15549257) : gérer les clients d'authentification.
 
-Ces références documentent les contrats généraux; elles ne prouvent ni la configuration privée du client OAuth, ni le résultat d'une authentification réelle sur l'extension installée.
+Ces références documentent les contrats généraux. Elles ne prouvent ni l'approbation de l'application OAuth, ni la disponibilité de l'extension dans le Store, ni le succès d'une connexion CWS avec un mentor autorisé.
