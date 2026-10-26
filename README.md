@@ -58,4 +58,5 @@ Le workflow `Validate extension` se déclenche sur les pull requests vers `dev` 
 - [Flux de présence Meet](docs/design/meet-flow.md)
 - [Export Sheets](docs/design/sheets-export.md)
 - [Parcours OAuth](docs/design/oauth-flow.md)
+- [Diagnostic du parcours de connexion Google](docs/design/auth-connection-diagnostics.md) : explications actionnables sans divulguer le détail brut d'une erreur.
 - [Guide backend et déploiement VPS](backend/README.md)

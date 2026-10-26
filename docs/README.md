@@ -17,6 +17,8 @@ L'empreinte de la reconstitution est candidate et ne prouve pas son originalité
 
 Le [journal des décisions](delivery/decision-log.md) et la [cible d'export](design/sheets-export.md) décrivent l'écart entre la cible MVP automatique et l'implémentation actuelle à action manuelle.
 
+Le parcours de connexion Google et sa matrice de diagnostics sont décrits dans [Diagnostic de connexion](design/auth-connection-diagnostics.md). Cette conception ciblée est approuvée; elle n'approuve ni la readiness globale du produit ni la configuration OAuth réelle.
+
 ## Suivi GitHub Projects
 
 Le manifeste local et les preuves de synchronisation sont consignés dans [GitHub Project](project-management/github-project.md). Le Project privé [Holbies Meet Tracker, #4](https://github.com/orgs/Krapaud-Labs/projects/4) est relié au dépôt. Il contient actuellement 19 Issues : 17 en backlog, une en cours et une en revue au 2026-10-26. Les Issues consignent tâches et preuves attendues selon leur périmètre; vérifie que les critères et la définition de terminé sont explicites avant toute clôture. Le Project a une unique vue Kanban (`BOARD_LAYOUT`) regroupée par `Status`; labels de phase et domaine visibles sur les cartes.
