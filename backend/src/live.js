@@ -2,31 +2,47 @@ import { timingSafeEqual } from 'node:crypto';
 
 const ALLOWED_DOMAIN = (process.env.ALLOWED_EMAIL_DOMAIN || 'holbertonschool.com').toLowerCase();
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
+const OAUTH2_TOKENINFO_URL = 'https://www.googleapis.com/oauth2/v2/tokeninfo';
+const MEET_READ_SCOPE = 'https://www.googleapis.com/auth/meetings.space.readonly';
+
+function isGoogleClientId(value) {
+  return typeof value === 'string' && /^[0-9]+-[a-z0-9-]+\.apps\.googleusercontent\.com$/.test(value);
+}
 
 async function verifyGoogleAccessToken(token, fetchImpl = fetch) {
-  if (typeof token !== 'string' || token.trim().length < 20) return null;
+  if (!isGoogleClientId(GOOGLE_CLIENT_ID) || typeof token !== 'string' || token.trim().length < 20) return null;
   token = token.trim();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 5000);
-  let response;
   try {
-    response = await fetchImpl(`https://oauth2.googleapis.com/tokeninfo?access_token=${encodeURIComponent(token)}`, { signal: controller.signal });
+    const tokeninfoUrl = new URL(OAUTH2_TOKENINFO_URL);
+    tokeninfoUrl.searchParams.set('access_token', token);
+    const response = await fetchImpl(tokeninfoUrl, {
+      method: 'POST',
+      signal: controller.signal,
+    });
+    if (!response.ok) return null;
+    const profile = await response.json();
+    const expiresIn = profile?.expires_in;
+    const scopes = typeof profile?.scope === 'string' ? profile.scope.split(/\s+/).filter(Boolean) : [];
+    const identityIsValid = profile?.audience === GOOGLE_CLIENT_ID
+      && profile?.issued_to === GOOGLE_CLIENT_ID
+      && profile?.verified_email === true
+      && typeof profile?.email === 'string'
+      && profile.email.trim().length > 0
+      && typeof profile?.user_id === 'string'
+      && profile.user_id.trim().length > 0;
+    const tokenIsValid = Number.isInteger(expiresIn)
+      && expiresIn > 0
+      && scopes.includes(MEET_READ_SCOPE);
+    return identityIsValid && tokenIsValid && isAllowedEmail(profile.email)
+      ? { email: profile.email.toLowerCase(), subject: profile.user_id }
+      : null;
   } catch {
     return null;
   } finally {
     clearTimeout(timeout);
   }
-  if (!response.ok) return null;
-  const profile = await response.json();
-  const expiresIn = Number(profile.expires_in);
-  const scopes = typeof profile.scope === 'string' ? profile.scope.split(/\s+/).filter(Boolean) : [];
-  const audienceMatches = Boolean(profile.aud) && (!GOOGLE_CLIENT_ID || profile.aud === GOOGLE_CLIENT_ID);
-  const issuerMatches = profile.iss === 'https://accounts.google.com' || profile.iss === 'accounts.google.com';
-  const scopeMatches = scopes.includes('https://www.googleapis.com/auth/meetings.space.readonly');
-  const verified = profile.email_verified === 'true' || profile.email_verified === true;
-  return audienceMatches && issuerMatches && verified && (Number.isNaN(expiresIn) || expiresIn > 0) && scopeMatches && isAllowedEmail(profile.email)
-    ? { email: profile.email.toLowerCase(), subject: profile.sub || null }
-    : null;
 }
 
 function isAllowedEmail(email) {
@@ -243,4 +259,4 @@ function renderReportHtml(session) {
 </style><style>body{overflow-x:hidden}main{width:min(100%,960px)}.summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.summary span{padding:14px;border:1px solid var(--line);border-top:3px solid var(--cherry);border-radius:10px}.table-wrap{overflow-x:auto}table{min-width:560px}th,td{overflow-wrap:anywhere;vertical-align:top}caption{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}@media(max-width:600px){.summary{grid-template-columns:repeat(2,minmax(0,1fr))}}</style></head><body><main><header><div><p class="eyebrow">HOLBIES MEET TRACKER</p><h1>Rapport de réunion</h1></div><p>Mentor : ${escapeHtml(session?.mentorEmail)}</p></header><section><h2>Résumé des présences</h2><div class="summary"><span>À l'heure : ${counts.onTime}</span><span>En retard : ${counts.late}</span><span>En attente : ${counts.waiting}</span><span>Absents : ${counts.absent}</span></div></section><section><h2>Détail des participants</h2><div class="table-wrap"><table><caption>Détail des participants</caption><thead><tr><th scope="col">Participant</th><th scope="col">E-mail</th><th scope="col">Statut</th><th scope="col">Arrivée</th></tr></thead><tbody>${rows || '<tr><td colspan="4">Aucune présence enregistrée.</td></tr>'}</tbody></table></div></section></main></body></html>`;
 }
 
-export { ALLOWED_DOMAIN, applyMeetEvent, applyParticipantSnapshot, calculateStatus, createLiveStore, decodeWorkspaceEvent, getParticipantStatuses, identityKeys, isAllowedEmail, mergeIdentityRows, normalizeComparableEmail, renderReportHtml, verifyEventsSecret, verifyGoogleAccessToken };
+export { ALLOWED_DOMAIN, applyMeetEvent, applyParticipantSnapshot, calculateStatus, createLiveStore, decodeWorkspaceEvent, getParticipantStatuses, identityKeys, isAllowedEmail, isGoogleClientId, mergeIdentityRows, normalizeComparableEmail, renderReportHtml, verifyEventsSecret, verifyGoogleAccessToken };
