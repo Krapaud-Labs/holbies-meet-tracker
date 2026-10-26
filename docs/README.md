@@ -1,3 +1,10 @@
+---
+title: Documentation de Holbies Meet Tracker
+status: updated
+last_updated: 2026-10-26
+category: project-management
+---
+
 # Documentation du projet
 
 Cette documentation décrit le périmètre proposé, les flux, l'architecture et les contrôles de Holbies Meet Tracker. Le classement MVP historique reste soumis aux décisions consignées dans l'archive et le manifeste de changements.
@@ -12,7 +19,9 @@ Le [journal des décisions](delivery/decision-log.md) et la [cible d'export](des
 
 ## Suivi GitHub Projects
 
-Le manifeste local et les preuves de synchronisation sont consignés dans [GitHub Project](project-management/github-project.md). Le Project privé [Holbies Meet Tracker, #4](https://github.com/orgs/Krapaud-Labs/projects/4) est relié au dépôt; ses 13 Issues ont été créées puis relues. Les Issues consignent tâches, critères et preuves attendues à des niveaux de détail différents; chaque clôture doit être étayée par les preuves de l’Issue concernée. Le Project a une unique vue Kanban (`BOARD_LAYOUT`) regroupée par `Status`; labels de phase et domaine visibles sur les cartes. Les Issues ouvertes contiennent des objectifs, checklists, critères d’acceptation, preuves attendues et définitions de clôture.
+Le manifeste local et les preuves de synchronisation sont consignés dans [GitHub Project](project-management/github-project.md). Le Project privé [Holbies Meet Tracker, #4](https://github.com/orgs/Krapaud-Labs/projects/4) est relié au dépôt. Il contient actuellement 19 Issues : 17 en backlog, une en cours et une en revue au 2026-10-26. Les Issues consignent tâches et preuves attendues selon leur périmètre; vérifie que les critères et la définition de terminé sont explicites avant toute clôture. Le Project a une unique vue Kanban (`BOARD_LAYOUT`) regroupée par `Status`; labels de phase et domaine visibles sur les cartes.
+
+Les règles de classement des documents actifs et des archives historiques sont décrites dans [Classement et contrôle des documents](quality/documentation-classification.md), et les empreintes de référence sont dans le [registre des archives](project-management/archive-manifest.tsv). Depuis la racine du dépôt, exécute `bash scripts/validate-documentation.sh` pour contrôler tous les Markdown actifs de `docs/`, y compris les nouveaux fichiers non suivis, et l’intégrité des archives, puis `bash scripts/test-documentation-validator.sh` pour lancer les fixtures. Python 3.11 ou supérieur est requis; seuls des modules standards sont utilisés. Le front matter pris en charge utilise des paires simples `clé: valeur`. Code 0 : aucun problème; code 1 : erreurs de contenu, manifeste ou intégrité; code 2 : invocation invalide, racine absente, manifeste indispensable absent ou environnement requis indisponible. Le validateur lit les fichiers sans les réparer et ne contacte aucun service externe. Le runner travaille sur des copies temporaires. La CI actuelle ne lance pas encore ces commandes.
 
 ## Audit de reprise
 

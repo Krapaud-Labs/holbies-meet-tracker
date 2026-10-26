@@ -1,0 +1,4 @@
+path	sha256	category	source	hash_role
+docs/project-management/cahier-des-charges/holbies-meet-tracker/historique.md	0d9599821512cb38de1146b5298bd493a24def1d105cd6283aa218a637d7b73e	historical-source	fixture historique indépendante	archive-integrity
+docs/project-management/cahier-des-charges/holbies-meet-tracker/reconstruction-candidate.md	f9ba7e9c43e0a180b5013d870fd459c5c82f94fef31709e9f2a2529f0b1056cd	candidate-reconstruction	fixture candidate	candidate-reconstruction
+docs/project-management/cahier-des-charges/holbies-meet-tracker/RECONSTRUCTION-CANDIDATE.sha256	201c742f207666c817c260b8e2dd4aafac3f0cf25947885ef353e3fc257fa021	checksum-manifest	fixture checksum sidecar	candidate-checksum
